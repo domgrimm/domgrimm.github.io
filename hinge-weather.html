@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Hinge Weather</title>
+  <style>
+    :root {
+      --ink: #e8e6dc;
+      --muted: #878b86;
+      --line: rgba(232,230,220,.16);
+      --panel: rgba(18,24,24,.78);
+      --acid: #d4f779;
+      --blue: #88c9e6;
+      --rust: #ee8d67;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #0d1212; color: var(--ink); }
+    body { font-family: Georgia, 'Times New Roman', serif; overflow-x: hidden; }
+    button { font: inherit; color: inherit; }
+    .shell { max-width: 1180px; min-height: 100svh; margin: auto; padding: 22px clamp(18px, 4vw, 54px) 30px; position: relative; }
+    .grain { position: fixed; inset: 0; pointer-events: none; opacity: .07; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E"); z-index: 5; mix-blend-mode: screen; }
+    header { display: flex; justify-content: space-between; align-items: center; position: relative; z-index: 2; }
+    .mark { font-size: 13px; letter-spacing: .19em; text-transform: uppercase; color: var(--acid); }
+    nav { display: flex; gap: 8px; }
+    nav button, .quiet { border: 1px solid var(--line); background: transparent; border-radius: 99px; padding: 8px 13px; cursor: pointer; font-size: 12px; letter-spacing: .07em; transition: .2s ease; }
+    nav button:hover, nav button.active { background: var(--ink); color: #0d1212; border-color: var(--ink); }
+    main { position: relative; z-index: 1; }
+    .screen { display: none; animation: arrive .45s ease both; }
+    .screen.active { display: block; }
+    @keyframes arrive { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
+    .hero { padding: clamp(70px, 13vh, 150px) 0 30px; max-width: 700px; }
+    .eyebrow { color: var(--muted); text-transform: uppercase; letter-spacing: .15em; font-size: 11px; margin: 0 0 18px; }
+    h1 { font-weight: 400; font-size: clamp(48px, 9vw, 104px); letter-spacing: -.075em; line-height: .84; margin: 0 0 26px; max-width: 650px; }
+    .hero p { color: #b5b7ae; max-width: 410px; line-height: 1.55; font-size: 17px; margin: 0; }
+    .instrument { display: grid; grid-template-columns: minmax(250px, 1fr) minmax(245px, .65fr); gap: 24px; align-items: end; }
+    .field { height: min(55vw, 540px); min-height: 360px; position: relative; border: 1px solid var(--line); overflow: hidden; background: radial-gradient(circle at 50% 50%, rgba(73,102,91,.24), transparent 52%), #111918; cursor: crosshair; }
+    #sky { width: 100%; height: 100%; display: block; }
+    .field-label { position: absolute; top: 16px; left: 17px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; pointer-events: none; }
+    .field-count { position: absolute; right: 17px; top: 15px; color: var(--acid); font-size: 11px; pointer-events: none; }
+    .pulse { position: absolute; width: 12px; height: 12px; border: 1px solid var(--acid); border-radius: 50%; pointer-events: none; animation: pulse 1.3s ease-out forwards; }
+    @keyframes pulse { to { transform: scale(14); opacity: 0; } }
+    .controls { display: flex; flex-direction: column; gap: 22px; padding-bottom: 10px; }
+    .reading { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 18px 0; }
+    .reading small { display: block; color: var(--muted); text-transform: uppercase; letter-spacing: .13em; font-size: 10px; margin-bottom: 9px; }
+    .reading strong { display: block; font-size: clamp(24px, 3vw, 34px); font-weight: 400; line-height: 1.05; color: var(--acid); }
+    .reading span { display: block; color: #aeb1a8; margin-top: 7px; font-size: 14px; }
+    .action { background: var(--acid); color: #182016; border: 0; border-radius: 0; cursor: pointer; padding: 16px 19px; text-align: left; display: flex; justify-content: space-between; align-items: center; font-size: 16px; transition: transform .18s, background .18s; }
+    .action:hover { transform: translateX(5px); background: #e4ff95; }
+    .action b { font-size: 22px; font-weight: 400; }
+    .note { color: var(--muted); font-size: 13px; line-height: 1.5; max-width: 290px; }
+    .transmission { max-width: 780px; padding: clamp(80px, 15vh, 170px) 0 60px; }
+    .transmission h2 { font-size: clamp(45px, 9vw, 86px); font-weight: 400; letter-spacing: -.07em; line-height: .88; margin: 0 0 54px; color: var(--blue); }
+    .cipher { display: grid; grid-template-columns: 100px 1fr; border-top: 1px solid var(--line); padding: 17px 0 23px; gap: 20px; }
+    .cipher .n { color: var(--rust); font-size: 12px; letter-spacing: .1em; }
+    .cipher p { margin: 0; font-size: clamp(17px, 2.2vw, 23px); line-height: 1.35; color: #c7c8bf; }
+    .cipher em { color: var(--acid); font-style: normal; }
+    .closing { margin: 48px 0 0 120px; color: var(--muted); line-height: 1.6; font-size: 14px; max-width: 350px; }
+    footer { display: flex; justify-content: space-between; margin-top: 26px; color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+    .quiet { padding: 5px 9px; color: var(--muted); }
+    @media (max-width: 700px) {
+      .shell { padding-top: 18px; }
+      .hero { padding-top: 80px; }
+      h1 { font-size: clamp(55px, 18vw, 100px); }
+      .hero p { font-size: 15px; }
+      .instrument { display: flex; flex-direction: column; align-items: stretch; }
+      .field { height: 76vw; min-height: 290px; }
+      .controls { gap: 15px; }
+      .reading { padding: 14px 0; }
+      .cipher { grid-template-columns: 48px 1fr; gap: 10px; }
+      .closing { margin-left: 58px; }
+      footer { margin-top: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="grain"></div>
+  <div class="shell">
+    <header>
+      <div class="mark">Hinge / Weather</div>
+      <nav aria-label="App screens">
+        <button class="active" data-screen="instrument">instrument</button>
+        <button data-screen="transmission">transmission</button>
+      </nav>
+    </header>
+
+    <main>
+      <section class="screen active" id="instrument">
+        <div class="hero">
+          <p class="eyebrow">a pocket observatory for almost-events</p>
+          <h1>Catch the<br><i>weather</i><br>between.</h1>
+          <p>There is a pressure that arrives before a thought. Put your finger anywhere in the field. The instrument will decide what it was.</p>
+        </div>
+        <div class="instrument">
+          <div class="field" id="field" aria-label="Interactive weather field" role="button" tabindex="0">
+            <canvas id="sky"></canvas>
+            <div class="field-label">live aperture</div>
+            <div class="field-count" id="count">00 traces held</div>
+          </div>
+          <div class="controls">
+            <div class="reading">
+              <small>current condition</small>
+              <strong id="condition">unentered</strong>
+              <span id="detail">the room is waiting for a disturbance</span>
+            </div>
+            <button class="action" id="record">Keep this weather <b>+</b></button>
+            <div class="note">Tap the aperture to disturb it. Keep what clings. Your traces never leave this browser.</div>
+          </div>
+        </div>
+        <footer><span id="stored">no weather stored</span><button class="quiet" id="clear" type="button">empty the jar</button></footer>
+      </section>
+
+      <section class="screen" id="transmission">
+        <div class="transmission">
+          <p class="eyebrow">side b / intercepted without permission</p>
+          <h2>THE FIELD<br>HAS NO OPINION.</h2>
+          <div class="cipher"><div class="n">01 / rule</div><p>Do not arrive with a name. A name is a small locked room. Bring only the <em>weight</em> of your hand.</p></div>
+          <div class="cipher"><div class="n">02 / method</div><p>One mark is an accident. Two marks are a weather system. Three marks begin to <em>remember</em> you.</p></div>
+          <div class="cipher"><div class="n">03 / storage</div><p>The browser keeps the residue in a dark drawer. No account. No witness. Closing the door does not make the drawer empty.</p></div>
+          <div class="cipher"><div class="n">04 / warning</div><p>If the green point begins to look like an eye, look away. It is only the part of you that wants the instrument to be <em>about</em> you.</p></div>
+          <p class="closing">This is the complete accounting. The rest is pressure, saved as a number, pretending to be a place.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      const key = 'hinge-weather-traces';
+      const field = document.getElementById('field');
+      const canvas = document.getElementById('sky');
+      const ctx = canvas.getContext('2d');
+      const condition = document.getElementById('condition');
+      const detail = document.getElementById('detail');
+      const count = document.getElementById('count');
+      const stored = document.getElementById('stored');
+      let traces = JSON.parse(localStorage.getItem(key) || '[]');
+      let current = null;
+      let frame;
+      const names = ['thin thunder', 'blue hesitation', 'warm static', 'low orbit', 'soft fracture', 'green hush', 'unripe dawn', 'the almost'];
+      const details = ['a small voltage under the floor', 'the air has changed its mind', 'something passed without becoming visible', 'a door practicing its hinge', 'the silence has a bright edge', 'not rain; the memory of rain', 'a signal with no sender', 'the distance is briefly edible'];
+
+      function resize() {
+        const dpr = Math.min(devicePixelRatio || 1, 2);
+        canvas.width = field.clientWidth * dpr;
+        canvas.height = field.clientHeight * dpr;
+        canvas.style.width = field.clientWidth + 'px';
+        canvas.style.height = field.clientHeight + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        draw();
+      }
+      function draw() {
+        const w = field.clientWidth, h = field.clientHeight;
+        ctx.clearRect(0, 0, w, h);
+        ctx.strokeStyle = 'rgba(232,230,220,.08)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < w; x += 42) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+        for (let y = 0; y < h; y += 42) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+        traces.forEach((t, i) => {
+          const x = t.x * w, y = t.y * h;
+          const radius = 18 + ((i * 13) % 30);
+          const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
+          glow.addColorStop(0, 'rgba(212,247,121,.3)'); glow.addColorStop(1, 'rgba(212,247,121,0)');
+          ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = i === traces.length - 1 ? '#d4f779' : 'rgba(136,201,230,.8)';
+          ctx.beginPath(); ctx.arc(x, y, i === traces.length - 1 ? 3 : 2, 0, Math.PI * 2); ctx.fill();
+          if (i) { const prev = traces[i - 1]; ctx.strokeStyle = 'rgba(136,201,230,.18)'; ctx.beginPath(); ctx.moveTo(prev.x * w, prev.y * h); ctx.lineTo(x, y); ctx.stroke(); }
+        });
+      }
+      function updateReadout() {
+        count.textContent = String(traces.length).padStart(2, '0') + ' traces held';
+        stored.textContent = traces.length ? traces.length + ' weather' + (traces.length === 1 ? '' : 's') + ' in the jar' : 'no weather stored';
+        if (current) { condition.textContent = current.name; detail.textContent = current.detail; }
+      }
+      function disturb(event) {
+        const rect = field.getBoundingClientRect();
+        const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+        const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+        const i = Math.floor(Math.random() * names.length);
+        current = { x, y, name: names[i], detail: details[i] };
+        const pulse = document.createElement('span'); pulse.className = 'pulse'; pulse.style.left = (x * 100) + '%'; pulse.style.top = (y * 100) + '%'; field.appendChild(pulse); setTimeout(() => pulse.remove(), 1400);
+        draw(); updateReadout();
+      }
+      field.addEventListener('pointerdown', disturb);
+      field.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); disturb({ clientX: field.getBoundingClientRect().left + Math.random() * field.clientWidth, clientY: field.getBoundingClientRect().top + Math.random() * field.clientHeight }); } });
+      document.getElementById('record').addEventListener('click', () => { if (!current) return; traces.push({ x: current.x, y: current.y }); localStorage.setItem(key, JSON.stringify(traces)); updateReadout(); draw(); });
+      document.getElementById('clear').addEventListener('click', () => { traces = []; current = null; localStorage.removeItem(key); condition.textContent = 'unentered'; detail.textContent = 'the room is waiting for a disturbance'; updateReadout(); draw(); });
+      document.querySelectorAll('nav button').forEach(button => button.addEventListener('click', () => { document.querySelectorAll('nav button, .screen').forEach(el => el.classList.remove('active')); button.classList.add('active'); document.getElementById(button.dataset.screen).classList.add('active'); }));
+      addEventListener('resize', resize);
+      updateReadout(); resize();
+      frame = requestAnimationFrame(function shimmer() { draw(); frame = requestAnimationFrame(shimmer); });
+    })();
+  </script>
+</body>
+</html>

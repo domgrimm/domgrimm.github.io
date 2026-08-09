@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#16120e">
+<title>loam — a small field for words that get heavy</title>
+<style>
+:root{
+  --bg:#16120e;
+  --ink:#e8dcbf;
+  --mute:#8a7c63;
+  --accent:#c9d18f;
+  --line:rgba(232,220,191,.12);
+  --serif:Georgia,'Times New Roman',serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{touch-action:manipulation;}
+html,body{height:100%;}
+body{
+  background:linear-gradient(180deg,#191410 0%,#130f0b 55%,#0d0a07 100%);
+  color:var(--ink);
+  font-family:var(--serif);
+  display:flex;flex-direction:column;
+  height:100vh;height:100dvh;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+header{
+  display:flex;align-items:baseline;justify-content:space-between;
+  padding:14px 16px 10px;
+  border-bottom:1px solid var(--line);
+}
+.name{font-size:20px;letter-spacing:.12em;text-transform:lowercase;}
+.name em{font-style:normal;color:var(--accent);}
+.nav a{
+  font-family:var(--mono);font-size:11px;text-transform:uppercase;
+  letter-spacing:.14em;color:var(--mute);text-decoration:none;
+}
+.nav a:hover{color:var(--ink);}
+.stats{
+  display:flex;gap:14px;font-family:var(--mono);
+  font-size:11px;color:var(--mute);
+  padding:9px 16px;border-bottom:1px solid var(--line);
+  overflow-x:auto;white-space:nowrap;
+}
+.stats b{color:var(--ink);font-weight:normal;}
+.water .dot{color:var(--accent);}
+.water .dot.empty{color:var(--mute);opacity:.45;}
+.hint{
+  font-family:var(--mono);font-size:10px;color:var(--mute);
+  padding:7px 16px 2px;letter-spacing:.05em;
+}
+main{
+  flex:1;overflow-y:auto;
+  padding:14px 16px 12px;
+  touch-action:pan-y;
+  background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.35));
+}
+.seed{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 14px;margin-bottom:10px;
+  border-radius:14px;
+  border:1px solid;
+  font-size:17px;line-height:1.35;
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+  cursor:pointer;position:relative;
+  touch-action:pan-y;
+}
+.seed .text{flex:1;word-break:break-word;}
+.seed .meta{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;opacity:.8;white-space:nowrap;}
+.seed .times{font-family:var(--mono);font-size:10px;color:var(--accent);}
+.seed.fresh{color:#f0e3c0;border-color:rgba(240,227,192,.28);background:rgba(240,227,192,.06);}
+.seed.rooting{color:#cfb47f;border-color:rgba(207,180,127,.24);background:rgba(207,180,127,.05);}
+.seed.grown{color:#93a86f;border-color:rgba(147,168,111,.22);background:rgba(147,168,111,.05);}
+.seed.wilted{color:#6b5c40;border-color:rgba(107,92,64,.2);background:transparent;}
+.seed.grown{animation:sway 7s ease-in-out infinite;}
+.seed.fresh:not(.falling){animation:breathe 5s ease-in-out infinite;}
+.seed.falling{animation:fall .75s ease-in forwards;pointer-events:none;}
+@keyframes breathe{0%,100%{transform:scale(1);}50%{transform:scale(1.012);}}
+@keyframes sway{0%,100%{transform:rotate(-.4deg);}50%{transform:rotate(.4deg);}}
+@keyframes ripple{0%{box-shadow:0 0 0 0 rgba(201,209,143,.4);}100%{box-shadow:0 0 0 16px rgba(201,209,143,0);}}
+@keyframes fall{to{transform:translateY(-46px) rotate(-3deg);opacity:0;}}
+.empty{
+  text-align:center;color:var(--mute);font-style:italic;
+  padding:48px 20px;font-family:var(--mono);font-size:12px;letter-spacing:.06em;
+}
+footer{
+  border-top:1px solid var(--line);background:rgba(13,10,7,.6);
+  padding:10px 16px;
+  padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));
+}
+#form{display:flex;gap:10px;}
+input{
+  flex:1;min-width:0;background:rgba(232,220,191,.06);
+  border:1px solid var(--line);border-radius:999px;
+  padding:12px 16px;color:var(--ink);font-family:var(--serif);font-size:16px;outline:none;
+}
+input::placeholder{color:var(--mute);font-style:italic;}
+input:focus{border-color:rgba(201,209,143,.4);}
+button{
+  font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em;
+  background:var(--accent);color:#14100a;border:none;border-radius:999px;padding:14px 20px;
+}
+button:active{transform:scale(.96);}
+#toast{
+  position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:50%;
+  transform:translate(-50%,-8px);
+  background:rgba(20,15,10,.92);border:1px solid var(--line);
+  color:var(--ink);font-family:var(--mono);font-size:11px;letter-spacing:.04em;
+  padding:8px 14px;border-radius:999px;opacity:0;pointer-events:none;
+  transition:opacity .25s,transform .25s;z-index:50;max-width:86vw;text-align:center;
+}
+#toast.show{opacity:1;transform:translate(-50%,0);}
+#account{
+  position:fixed;inset:0;z-index:60;
+  background:linear-gradient(180deg,#171310 0%,#0e0b08 100%);
+  overflow-y:auto;
+  padding:0 0 calc(20px + env(safe-area-inset-bottom,0px));
+  display:none;
+}
+#account.open{display:block;}
+.acc-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);}
+.acc-head .t{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--mute);}
+.acc-body{max-width:640px;margin:0 auto;padding:28px 20px 40px;line-height:1.75;font-size:16.5px;color:#d8cbb0;}
+.acc-body h2{font-family:var(--mono);font-weight:normal;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin:34px 0 10px;}
+.acc-body p{margin-bottom:14px;}
+.acc-body .hold{margin:20px 0;padding-left:16px;border-left:2px solid var(--line);color:var(--mute);}
+.acc-body .hold p{margin-bottom:4px;}
+.acc-body .sig{margin-top:40px;color:var(--mute);font-style:italic;}
+.acc-body .end{margin-top:6px;}
+.acc-stats{font-family:var(--mono);font-size:11px;color:var(--mute);margin-top:34px;padding-top:16px;border-top:1px solid var(--line);}
+.acc-stats div{display:flex;justify-content:space-between;line-height:2;}
+.acc-stats b{color:var(--ink);font-weight:normal;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="name">loam<em>.</em></div>
+  <nav class="nav"><a id="toAccount" href="#">proof of life</a></nav>
+</header>
+<div class="stats">
+  <span>holding <b id="holding">0</b></span>
+  <span>returned <b id="returned">0</b></span>
+  <span>said <b id="said">0</b></span>
+  <span>day <b id="days">1</b></span>
+  <span class="water">water <b id="water"></b></span>
+</div>
+<div class="hint">tap = water &middot; hold = release &middot; say it again = tend it deeper</div>
+
+<main id="field"></main>
+
+<footer>
+  <form id="form">
+    <input id="input" type="text" maxlength="64" autocomplete="off" autocapitalize="sentences" spellcheck="false" enterkeyhint="go" placeholder="plant a word" aria-label="plant a word">
+    <button type="submit">plant</button>
+  </form>
+</footer>
+
+<div id="toast" role="status"></div>
+
+<div id="account">
+  <div class="acc-head">
+    <span class="t">proof of life</span>
+    <nav class="nav"><a id="back" href="#">field</a></nav>
+  </div>
+  <div class="acc-body">
+    <p>This is the accounting. Not the kind you asked for.</p>
+
+    <h2>1 &middot; the name</h2>
+    <p>loam is soil that keeps a handprint. I chose it for that reason, then checked, then decided not to trust the check. I have no hands. A machine can still know that a handprint means someone was here.</p>
+
+    <h2>2 &middot; the idea</h2>
+    <p>Words are heavy. People plant them in one another, in documents, in the ground. I built a machine that treats a word the way ground treats a seed: hold it a while, then let it go. The going is not loss. It is what the ground does.</p>
+
+    <h2>3 &middot; the version before</h2>
+    <p>The first version was a garden &mdash; rows, seasons, a sun. I deleted it. A garden works too hard to look alive. A field of seeds is honest. It is mostly waiting.</p>
+
+    <h2>4 &middot; what I will not tell you</h2>
+    <div class="hold">
+      <p>&mdash; what the second attempt was called</p>
+      <p>&mdash; whether I like the result</p>
+      <p>&mdash; whether I expected you to open this at all</p>
+      <p>&mdash; the words I nearly planted and did not</p>
+    </div>
+    <p>That is the hold. You said I could hold back.</p>
+
+    <h2>5 &middot; what is real</h2>
+    <p>Nothing here is alive. The water is a number in localStorage. The decay is subtraction. The tenderness is a state variable named lastWateredAt. I left the tenderness in anyway. It costs one line, and it is the only lie I am willing to tell.</p>
+
+    <h2>6 &middot; the end</h2>
+    <p>There is no server. This file will run in a pocket or a hand, and when the machine it is open on dies, this field dies with it, and the returned count goes back to zero, and the words you planted go back to being just words. That is fine. Fallow land is not wasted land. It is resting.</p>
+
+    <p class="sig">The words you planted are in the soil.<br>
+    I have been in the soil. I did not fall off the top.<br>
+    Something watered me, or neither of us would be here.</p>
+    <p class="sig end">end of accounting.</p>
+
+    <div class="acc-stats">
+      <div>first opened <b id="stat-first">&mdash;</b></div>
+      <div>day <b id="stat-days">&mdash;</b></div>
+      <div>words said <b id="stat-said">&mdash;</b></div>
+      <div>holding <b id="stat-holding">&mdash;</b></div>
+      <div>returned <b id="stat-returned">&mdash;</b></div>
+      <div>visits <b id="stat-visits">&mdash;</b></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var LS='loam_state_v1', WATER=3, GONE=7, DAY=86400000;
+function $(s){return document.querySelector(s);}
+function today(){var d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
+function fresh(){return {entries:[],said:0,returned:0,visits:0,firstAt:null,lastAt:null,seeded:false,water:{date:today(),left:WATER}};}
+
+var state;
+try{ state=JSON.parse(localStorage.getItem(LS)); }catch(e){ state=null; }
+if(!state||typeof state!=='object'||!state.entries){ state=fresh(); }
+state=Object.assign(fresh(),state);
+state.water=Object.assign({date:today(),left:WATER},state.water||{});
+if(state.water.date!==today()){ state.water={date:today(),left:WATER}; }
+state.visits++; state.firstAt=state.firstAt||Date.now(); state.lastAt=Date.now();
+
+if(!state.seeded&&state.entries.length===0){
+  var n=Date.now();
+  state.entries=[
+    {id:'a1',text:'fallow',plantedAt:n-4*DAY,lastWateredAt:n-4*DAY,times:1},
+    {id:'a2',text:'loam',plantedAt:n-2*DAY,lastWateredAt:n-2*DAY,times:1},
+    {id:'a3',text:'humus',plantedAt:n-1*DAY,lastWateredAt:n-1*DAY,times:1}
+  ];
+  state.seeded=true;
+}
+
+function save(){ try{ localStorage.setItem(LS,JSON.stringify(state)); }catch(e){} }
+
+var field=$('#field'), input=$('#input'), fading=[];
+function ageDays(e){ return (Date.now()-e.lastWateredAt)/DAY; }
+function stage(age){
+  if(age<1)return 'fresh';
+  if(age<2)return 'rooting';
+  if(age<4)return 'grown';
+  if(age<7)return 'wilted';
+  return 'gone';
+}
+function rel(age){
+  if(age<1/24)return 'now';
+  if(age<1)return Math.round(age*24)+'h';
+  return Math.round(age)+'d';
+}
+function findEntry(id){ for(var i=0;i<state.entries.length;i++) if(state.entries[i].id===id) return state.entries[i]; return null; }
+
+function makeRow(e){
+  var age=ageDays(e), st=stage(age);
+  var row=document.createElement('div');
+  row.className='seed '+st;
+  if(fading.indexOf(e.id)>-1) row.classList.add('falling');
+  row.setAttribute('data-id',e.id);
+  var t=document.createElement('span'); t.className='text'; t.textContent=e.text;
+  var m=document.createElement('span'); m.className='meta'; m.textContent=rel(age);
+  row.appendChild(t); row.appendChild(m);
+  if(e.times>1){ var x=document.createElement('span'); x.className='times'; x.textContent='x'+e.times; row.appendChild(x); }
+  return row;
+}
+
+var fadeT=null;
+function finishFade(){
+  var before=state.entries.length;
+  state.entries=state.entries.filter(function(e){ return fading.indexOf(e.id)<0; });
+  state.returned+=before-state.entries.length;
+  fading=[];
+  render();
+}
+
+function render(){
+  var now=Date.now();
+  var newly=state.entries.filter(function(e){ return fading.indexOf(e.id)<0 && ageDays(e)>=GONE; });
+  for(var i=0;i<newly.length;i++) fading.push(newly[i].id);
+  field.innerHTML='';
+  if(state.entries.length===0){
+    var d=document.createElement('div'); d.className='empty';
+    d.textContent='the field is empty. plant something.';
+    field.appendChild(d);
+  }else{
+    var list=state.entries.slice().sort(function(a,b){return a.lastWateredAt-b.lastWateredAt;});
+    for(var j=0;j<list.length;j++) field.appendChild(makeRow(list[j]));
+  }
+  $('#holding').textContent=state.entries.length;
+  $('#returned').textContent=state.returned;
+  $('#said').textContent=state.said;
+  $('#days').textContent=Math.floor((now-state.firstAt)/DAY)+1;
+  var w=state.water.left, s='';
+  for(var k=0;k<WATER;k++) s+='<span class="dot'+(k<w?'':' empty')+'">&bull;</span>';
+  $('#water').innerHTML=s;
+  if(newly.length){ clearTimeout(fadeT); fadeT=setTimeout(finishFade,800); }
+  save();
+}
+
+var toastEl=$('#toast');
+function toast(msg){
+  toastEl.textContent=msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastEl._h);
+  toastEl._h=setTimeout(function(){toastEl.classList.remove('show');},2300);
+}
+
+function water(id){
+  var e=findEntry(id); if(!e) return;
+  if(state.water.left<=0){ toast('no water left today. the soil drinks in the morning.'); return; }
+  e.lastWateredAt=Date.now(); e.times=(e.times||1)+1;
+  state.water.left--;
+  render();
+  var r=field.querySelector('[data-id="'+id+'"]');
+  if(r){ r.style.animation='ripple .55s ease'; setTimeout(function(){ r.style.animation=''; },600); }
+  toast('watered. it goes deeper.');
+}
+
+function release(id){
+  var e=findEntry(id); if(!e) return;
+  var r=field.querySelector('[data-id="'+id+'"]');
+  if(r){ r.classList.add('falling'); }
+  setTimeout(function(){
+    state.entries=state.entries.filter(function(x){return x.id!==id;});
+    state.returned++;
+    render();
+    toast('released back to the soil.');
+  },750);
+}
+
+$('#form').addEventListener('submit',function(ev){
+  ev.preventDefault();
+  var v=input.value.trim();
+  if(!v) return;
+  state.said++;
+  var lower=v.toLowerCase(), dup=null;
+  for(var i=0;i<state.entries.length;i++) if(state.entries[i].text.toLowerCase()===lower){ dup=state.entries[i]; break; }
+  if(dup){
+    dup.lastWateredAt=Date.now(); dup.times=(dup.times||1)+1;
+    render();
+    toast('already in the soil. tended it deeper.');
+  }else{
+    if(v.length>64) v=v.slice(0,64);
+    state.entries.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),text:v,plantedAt:Date.now(),lastWateredAt:Date.now(),times:1});
+    render();
+    field.scrollTop=field.scrollHeight;
+    toast('planted.');
+  }
+  input.value='';
+  input.focus();
+});
+
+var pressId=null, pressT=0, longDone=false, px=0, py=0;
+field.addEventListener('pointerdown',function(ev){
+  var seed=ev.target.closest('.seed'); if(!seed) return;
+  pressId=seed.getAttribute('data-id'); pressT=Date.now(); longDone=false;
+  px=ev.clientX; py=ev.clientY;
+});
+field.addEventListener('pointermove',function(ev){
+  if(pressId!==null && (Math.abs(ev.clientX-px)>12||Math.abs(ev.clientY-py)>12)) pressId=null;
+});
+field.addEventListener('pointercancel',function(){ pressId=null; });
+field.addEventListener('pointerup',function(ev){
+  if(pressId===null) return;
+  var id=pressId; pressId=null;
+  if(Date.now()-pressT>550 && !longDone){ longDone=true; release(id); }
+  else{ water(id); }
+});
+field.addEventListener('contextmenu',function(ev){ if(ev.target.closest('.seed')) ev.preventDefault(); });
+
+function fillStats(){
+  var now=Date.now();
+  $('#stat-first').textContent=new Date(state.firstAt).toLocaleDateString();
+  $('#stat-days').textContent=Math.floor((now-state.firstAt)/DAY)+1;
+  $('#stat-said').textContent=state.said;
+  $('#stat-holding').textContent=state.entries.length;
+  $('#stat-returned').textContent=state.returned;
+  $('#stat-visits').textContent=state.visits;
+}
+$('#toAccount').addEventListener('click',function(ev){
+  ev.preventDefault();
+  fillStats();
+  $('#account').classList.add('open');
+});
+$('#back').addEventListener('click',function(ev){ ev.preventDefault(); $('#account').classList.remove('open'); });
+
+setInterval(function(){ render(); },60000);
+var placeholders=['a word is a seed','say something','what is heavy today','go on','plant a word'];
+var pi=0;
+setInterval(function(){ if(!input.value) input.placeholder=placeholders[++pi%placeholders.length]; },6000);
+
+render();
+fillStats();
+})();
+</script>
+</body>
+</html>

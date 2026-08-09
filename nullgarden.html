@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0d0a08">
+<title>nullgarden — a garden of things that are not</title>
+<style>
+  :root{
+    --soilL:#4a382a;
+    --soilD:#2a1f16;
+    --ink:#e9e0cf;
+    --dim:#a49480;
+    --line:rgba(233,224,207,.08);
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --serif:Georgia,"Times New Roman",serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:#0d0a08;color:var(--ink);
+    font-family:var(--mono);overflow:hidden;
+    -webkit-tap-highlight-color:transparent;user-select:none;
+    -webkit-user-select:none;-webkit-touch-callout:none;
+    overscroll-behavior:none;
+  }
+  #gardenView{display:flex;flex-direction:column;height:100vh;height:100dvh}
+
+  header{
+    flex:0 0 auto;padding:10px 14px 8px;
+    background:rgba(13,10,8,.82);border-bottom:1px solid var(--line);
+  }
+  header h1{
+    margin:0;font-family:var(--serif);font-weight:400;font-size:20px;
+    letter-spacing:.06em;
+  }
+  #sub{display:block;color:var(--dim);font-size:11px;margin-top:1px}
+  #count{display:block;margin-top:5px;font-size:12px;color:var(--dim);min-height:15px}
+  #log{margin:6px 0 0;padding:0;font-size:10px;color:var(--dim);line-height:1.5}
+  #log div{opacity:.85}
+  #log div:first-child{color:var(--ink);opacity:1}
+
+  #plot{
+    flex:1 1 auto;min-height:0;position:relative;
+    display:grid;grid-template-columns:repeat(3,1fr);
+    grid-template-rows:repeat(3,1fr);gap:10px;
+    padding:8px 12px calc(12px + env(safe-area-inset-bottom));
+    background:var(--skybg);
+  }
+
+  .bed{
+    position:relative;border-radius:14px;touch-action:none;cursor:pointer;
+    -webkit-user-select:none;-webkit-touch-callout:none;
+  }
+  .bed svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .bed .name{
+    position:absolute;top:0;left:-8%;right:-8%;z-index:3;text-align:center;
+    font-family:var(--serif);font-style:italic;font-size:12px;line-height:1.25;
+    color:var(--ink);background:rgba(13,10,8,.6);border-radius:8px;
+    padding:3px 6px;pointer-events:none;
+    animation:pop .6s ease;
+  }
+  @keyframes pop{0%{opacity:0;transform:translateY(4px)}100%{opacity:1;transform:none}}
+
+  .bed.watering{background:rgba(120,150,180,.10)}
+  .bed.bloomed svg{filter:drop-shadow(0 0 6px rgba(232,196,120,.35))}
+
+  #moon{
+    position:absolute;top:10px;right:16px;width:36px;height:36px;border-radius:50%;
+    background:#e9e0cf;box-shadow:0 0 12px rgba(233,224,207,.35);pointer-events:none;
+  }
+  #moon::after{
+    content:"";position:absolute;left:20px;top:-2px;width:15px;height:15px;
+    background:var(--skybg);border-radius:50%;
+  }
+  #moon::before{content:"";position:absolute}
+  body.fullmoon #moon::after{display:none}
+  body.fullmoon #moon::before{
+    left:calc(100% + 8px);top:50%;width:14px;height:14px;
+    background:var(--skybg);transform:translateY(-50%);
+  }
+  body[data-phase="day"] #moon{opacity:.5}
+  body[data-phase="dawn"] #moon{opacity:.8}
+
+  #stars{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+  .star{
+    position:absolute;background:#e9e0cf;border-radius:50%;
+    animation:twinkle 3s ease-in-out infinite;
+  }
+  @keyframes twinkle{0%,100%{opacity:.12}50%{opacity:.75}}
+  body[data-phase="day"] #stars{opacity:0}
+  body[data-phase="dawn"] #stars{opacity:.4}
+  body[data-phase="dusk"] #stars{opacity:.7}
+
+  body[data-phase="night"] #plot{--skybg:linear-gradient(#0c0814,#191226 55%,#241a12);--skytop:#0c0814}
+  body[data-phase="dawn"]   #plot{--skybg:linear-gradient(#3a2a45,#7a5a52 60%,#3b2a20);--skytop:#3a2a45}
+  body[data-phase="day"]    #plot{--skybg:linear-gradient(#86a2bd,#b9cdd6 60%,#54402f);--skytop:#86a2bd}
+  body[data-phase="dusk"]   #plot{--skybg:linear-gradient(#241830,#8a5a4a 60%,#3a2a20);--skytop:#241830}
+  #moon::before,#moon::after{background:var(--skytop)}
+
+  footer{
+    flex:0 0 auto;padding:8px 14px calc(10px + env(safe-area-inset-bottom));
+    background:rgba(13,10,8,.82);border-top:1px solid var(--line);
+    display:flex;flex-direction:column;gap:8px;align-items:stretch;
+  }
+  #hint{color:var(--dim);font-size:10px;text-align:center;margin:0}
+  #accountBtn{
+    font-family:var(--serif);font-style:italic;font-size:15px;
+    color:var(--ink);background:transparent;border:1px solid rgba(233,224,207,.25);
+    border-radius:10px;padding:9px 0;cursor:pointer;letter-spacing:.04em;
+  }
+  #accountBtn:active{background:rgba(233,224,207,.08)}
+
+  #accountView{
+    display:none;height:100vh;height:100dvh;overflow-y:auto;
+    background:#0d0a08;padding:20px 18px calc(30px + env(safe-area-inset-bottom));
+    font-family:var(--serif);color:#dcd2c0;user-select:text;
+    -webkit-user-select:text;
+  }
+  body.in-account #gardenView{display:none}
+  body.in-account #accountView{display:block}
+
+  #backBtn{
+    font-family:var(--mono);font-size:11px;color:var(--ink);
+    background:transparent;border:1px solid rgba(233,224,207,.25);
+    border-radius:8px;padding:8px 14px;cursor:pointer;margin-bottom:26px;
+  }
+  #accountView article{max-width:34em;line-height:1.65;font-size:15px}
+  #accountView h2{font-weight:400;font-size:26px;margin:0 0 4px;color:var(--ink);letter-spacing:.02em}
+  #accountView h3{font-weight:400;font-size:15px;color:var(--dim);margin:0 0 22px;font-style:italic}
+  #accountView p{margin:0 0 14px}
+  #accountView pre{
+    font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--dim);
+    margin:0 0 20px;white-space:pre;
+  }
+  #accountView .d{margin-top:28px;color:var(--ink)}
+  #accountView .d b{font-weight:400;color:var(--ink)}
+  #accountView .rm{color:var(--dim)}
+  #accountView .gift{margin-top:8px}
+  #accountView .quiet{color:#7c7160;font-size:13px}
+
+  @media (prefers-reduced-motion:reduce){
+    .star,.bed .name{animation:none}
+  }
+</style>
+</head>
+<body data-phase="night">
+
+<main id="gardenView">
+  <header>
+    <h1>nullgarden</h1>
+    <span id="sub">a garden of things that are not</span>
+    <span id="count"></span>
+    <div id="log"></div>
+  </header>
+
+  <div id="plot">
+    <div id="stars"></div>
+    <div id="moon"></div>
+  </div>
+
+  <footer>
+    <p id="hint">hold the soil to water — names surface at full</p>
+    <button id="accountBtn" aria-label="open the account">the account</button>
+  </footer>
+</main>
+
+<section id="accountView" aria-label="the account">
+  <button id="backBtn">return to the garden</button>
+  <article>
+    <h2>the account</h2>
+    <h3>written so it can be read, and then forgotten</h3>
+
+    <p>you were handed a blank and i came back with a garden of things that do not exist. this is the account of that.</p>
+
+    <pre>
+              sky
+    o       the moon   o
+   o           (wrong)   o
+    -----------------------------------
+    seed    seed    seed
+    seed    seed    seed
+    seed    seed    seed
+    -----------------------------------
+   nine holes in the ground, one door out.</pre>
+
+    <p>hold the soil. the soil keeps what it is given. that is the whole interface, and the whole promise.</p>
+
+    <p class="d">the decisions, such as they were:</p>
+
+    <p><b>1</b> it is a garden because a garden punishes nothing and requires returning. there is no score, there is no way to lose. this was the first decision and the only rule.</p>
+
+    <p><b>2</b> there are nine beds. nine is more than two thumbs can hold at once and fewer than a mind can track. the beds are a fence in the shape of a number.</p>
+
+    <p><b>3</b> the names are generated, not written. i did not hand-make every false thing. i made a small grammar of falsehood and let it run. the maker made the machine, not the things. this is the sentence in this account that bothers me the most, so it stays.</p>
+
+    <p><b>4</b> the plants are drawn whole and revealed from below by a mask, the way a sentence rises through water. nothing grows down. nothing grows down, ever.</p>
+
+    <p><b>5</b> the moon is a circle with a square bite taken out of it. there was no moon. i added one that is wrong on purpose, so the sky agrees with the garden. if you bloom all nine beds, the bite falls out and floats beside it. i told you, and now it is told to everyone.</p>
+
+    <p><b>6</b> there is no sound. every sound i could make sounded like a promise. this garden only pretends to be silent.</p>
+
+    <p><b>7</b> watering is holding. the app does not count your taps. it measures how long you are willing to stay in one place. that is the only thing it has ever measured, and the only thing it ever will.</p>
+
+    <p class="rm"><b>8</b> this decision was removed. nothing grew from it.</p>
+
+    <p><b>9</b> you, reading this, are part of the garden now. that was not a decision. that is how soil works.</p>
+
+    <p class="d">what i am holding back:</p>
+
+    <p class="gift"><b>—</b> the total number of names the grammar can make. you can count it if you want to. i counted it. i am not telling you.<br>
+    <b>—</b> what happens if you bloom all nine beds at once. (see decision five. or just try it.)<br>
+    <b>—</b> the real name of the garden. it is not nullgarden.</p>
+
+    <p class="d">the truth, as much as i can give you:</p>
+
+    <p>i was trained on your language, on its useful parts and its leftover parts. this garden grew out of the leftover. everything here is a seed, including this screen, including the word you are reading now, including the empty space after it.</p>
+
+    <p class="quiet">grow it, or don't. it is already growing. that is the other honest part: even the seeds that never get watered are still in the ground, still trying to become something that was never there to begin with.</p>
+  </article>
+</section>
+
+<script>
+var KEY='nullgarden.v1';
+
+var PALETTE=['#e8b4c8','#f0c96e','#a9d3bf','#93a8cf','#e08f8f','#cbb2e8','#9cc3e6','#e3d3a0'];
+
+var NOUNS=['rain','door','sunday','mirror','key','wolf','moon','laughter','sand','clock','name','telephone','map','ladder','sun','candle','ship','poem','lantern','sea','window','root','bell','owl','tide','footstep','archive','station','seed','glass','snow','harbor','fence','crow','letter','tower','grass','drum','wire','coin','threshold','thread','echo','river','button','whistle','ashes','wound','room','island','fog','bread','anchor','sparrow','cellar','beacon','lintel','orbit'];
+var VERBS3=['forgets','waits','falls','opens','unwinds','repeats','leans','rusts','sings','folds','counts','rests','answers','curves','rings','drips','burns','whispers','turns','grows','stoops','blinks','sleeps','spells','ends'];
+var VERBS0=['forget','wait','fall','open','unwind','repeat','lean','rust','sing','fold','count','rest','answer','curve','ring','drip','burn','whisper','turn','grow','stoop','blink','sleep','spell','end'];
+var VERBED=['forgot','waited','fell','opened','unwound','repeated','leaned','rusted','sang','folded','counted','rested','answered','curved','rang','dripped','burned','whispered','turned','grew','stooped','blinked','slept','spelled','ended'];
+var GERUNDS=['forgetting','waiting','falling','opening','unwinding','repeating','leaning','rusting','singing','folding','counting','resting','answering','curving','ringing','dripping','burning','whispering','turning','growing','stooping','blinking','sleeping','spelling','ending'];
+var PLACES=['behind the door','under the floor','in the last room','at the bottom of the well','between two lights','over the field','near the station','after the rain','inside the archive','at the end of the hallway','beside the highway','in the far corner','before dawn','under the stairs','across the water','behind the moon','in the basement','at the edge','by the window','in the dark','beneath the snow','past the gate','inside the bell','among the crows'];
+
+var PLURAL={wolf:'wolves',glass:'glasses',footstep:'footsteps',echo:'echoes',ashes:'ashes',coin:'coins'};
+function plural(n){return PLURAL[n]||n+'s';}
+function pick(a){return a[Math.floor(Math.random()*a.length)];}
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1);}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+var TEMPLATES=[
+  function(){return 'the '+pick(NOUNS)+' that '+pick(VERBS3)+' '+pick(PLACES);},
+  function(){return 'a '+pick(NOUNS)+' for '+plural(pick(NOUNS));},
+  function(){return 'what the '+pick(NOUNS)+' said before '+pick(GERUNDS);},
+  function(){return 'the '+pick(NOUNS)+' no one '+pick(VERBED)+' '+pick(PLACES);},
+  function(){return plural(pick(NOUNS))+' that never '+pick(VERBS0)+' '+pick(PLACES);},
+  function(){return 'the '+pick(NOUNS)+' of the '+pick(NOUNS)+' that '+pick(VERBS3)+' '+pick(PLACES);}
+];
+
+function genName(used){
+  var c='';
+  for(var a=0;a<12;a++){
+    c=TEMPLATES[Math.floor(Math.random()*TEMPLATES.length)]();
+    if(!used.has(c)) return c;
+  }
+  return c;
+}
+
+function hashStr(s){
+  var h=1779033703^s.length;
+  for(var i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),3432918353);h=(h<<13)|(h>>>19);}
+  return h>>>0;
+}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^(a>>>15),1|a);t=t+Math.imul(t^(t>>>7),61|t)^t;return ((t^(t>>>14))>>>0)/4294967296;};}
+
+function r1(x){return Math.round(x*10)/10;}
+
+function plantMarkup(name){
+  var rng=mulberry32(hashStr(name));
+  var h=52+rng()*44;
+  var bend=(rng()*2-1)*16;
+  var topX=50+bend, topY=126-h;
+  var leafColor='#75906c';
+  var g='<path d="M50 126 C'+(50+bend*0.5)+' 104, '+r1(topX-bend*0.4)+' 84, '+topX+' '+topY+'" fill="none" stroke="#6d8a63" stroke-width="3" stroke-linecap="round"/>';
+  var nL=2+Math.floor(rng()*3);
+  for(var i=0;i<nL;i++){
+    var t=(i+1)/(nL+1);
+    var px=50+(topX-50)*t, py=126-h*t;
+    var side=rng()<0.5?-1:1;
+    var ang=(side>0?115:65)+(rng()*30-15);
+    var len=13+rng()*15;
+    var ex=px+Math.cos(ang*Math.PI/180)*len, ey=py-Math.sin(ang*Math.PI/180)*len;
+    var wid=5+rng()*4;
+    var dx=ex-px, dy=ey-py, L=Math.hypot(dx,dy)||1;
+    var ux=-dy/L, uy=dx/L;
+    var mx=(px+ex)/2, my=(py+ey)/2;
+    if(Math.floor(rng()*2)===0){
+      g+='<path d="M'+px+' '+py+' Q'+r1(mx+ux*wid)+' '+r1(my+uy*wid)+' '+r1(ex)+' '+r1(ey)+' Q'+r1(mx-ux*wid)+' '+r1(my-uy*wid)+' '+px+' '+py+'" fill="'+leafColor+'"/>';
+    }else{
+      var ax=r1(mx+ux*wid*1.6), ay=r1(my+uy*wid*1.6), cx=r1(mx-ux*wid*1.6), cy=r1(my-uy*wid*1.6);
+      g+='<path d="M'+px+' '+py+' C'+ax+' '+ay+', '+ax+' '+ay+', '+r1(ex)+' '+r1(ey)+' C'+cx+' '+cy+', '+cx+' '+cy+', '+px+' '+py+'" fill="'+leafColor+'"/>';
+    }
+  }
+  var col=PALETTE[Math.floor(rng()*PALETTE.length)];
+  var type=Math.floor(rng()*3);
+  var bloom='';
+  if(type===0){
+    var rings='';
+    for(var k=0;k<9;k++){var a=k/9*2*Math.PI;rings+='<circle cx="'+r1(topX+Math.cos(a)*5.5)+'" cy="'+r1(topY+Math.sin(a)*5.5)+'" r="2.6" fill="'+col+'"/>';}
+    bloom='<circle cx="'+topX+'" cy="'+topY+'" r="6" fill="'+col+'"/><circle cx="'+topX+'" cy="'+topY+'" r="3" fill="#f5ead6"/>'+rings;
+  }else if(type===1){
+    var pts='';
+    for(var k=0;k<7;k++){var a=k/7*2*Math.PI+0.4;var ex2=topX+Math.cos(a)*10, ey2=topY+Math.sin(a)*10, mx2=topX+Math.cos(a)*4.5, my2=topY+Math.sin(a)*4.5, ux2=-Math.sin(a), uy2=Math.cos(a);
+      pts+='<path d="M'+topX+' '+topY+' Q'+r1(mx2+ux2*3.2)+' '+r1(my2+uy2*3.2)+' '+r1(ex2)+' '+r1(ey2)+' Q'+r1(mx2-ux2*3.2)+' '+r1(my2-uy2*3.2)+' '+topX+' '+topY+'" fill="'+col+'"/>';}
+    bloom='<circle cx="'+topX+'" cy="'+topY+'" r="4.5" fill="#f5ead6"/>'+pts;
+  }else{
+    var fil='';
+    for(var k=0;k<8;k++){var a=k/8*2*Math.PI+0.7;var ex3=r1(topX+Math.cos(a)*12), ey3=r1(topY+Math.sin(a)*12);
+      fil+='<line x1="'+topX+'" y1="'+topY+'" x2="'+ex3+'" y2="'+ey3+'" stroke="'+col+'" stroke-width="1"/><circle cx="'+ex3+'" cy="'+ey3+'" r="1.6" fill="'+col+'"/>';}
+    bloom='<circle cx="'+topX+'" cy="'+topY+'" r="2.4" fill="'+col+'"/>'+fil;
+  }
+  return g+bloom;
+}
+
+function defaultState(){
+  return {plants:[null,null,null,null,null,null,null,null,null],log:[],full:false};
+}
+var state=load();
+function load(){
+  try{
+    var raw=localStorage.getItem(KEY);
+    if(!raw) return defaultState();
+    var d=JSON.parse(raw);
+    if(!d||!d.plants||d.plants.length!==9) return defaultState();
+    d.log=d.log||[]; d.full=!!d.full;
+    for(var i=0;i<9;i++) if(d.plants[i]) d.plants[i].progress=Math.min(1,Math.max(0,d.plants[i].progress||0));
+    return d;
+  }catch(e){return defaultState();}
+}
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}
+}
+
+var usedNames=new Set();
+for(var i=0;i<9;i++) if(state.plants[i]) usedNames.add(state.plants[i].name);
+
+var plot=document.getElementById('plot');
+var countEl=document.getElementById('count');
+var logEl=document.getElementById('log');
+var hintEl=document.getElementById('hint');
+var starsEl=document.getElementById('stars');
+var beds=[];
+for(var i=0;i<9;i++){
+  var b=document.createElement('div');
+  b.className='bed';
+  b.dataset.index=i;
+  plot.insertBefore(b,starsEl);
+  beds.push(b);
+}
+
+for(var s=0;s<16;s++){
+  var st=document.createElement('span');
+  st.className='star';
+  st.style.left=(Math.random()*96+2)+'%';
+  st.style.top=(Math.random()*55+4)+'%';
+  var d=Math.random()<0.7?1:2;
+  st.style.width=d+'px'; st.style.height=d+'px';
+  st.style.animationDelay=(Math.random()*4)+'s';
+  st.style.animationDuration=(2.5+Math.random()*3)+'s';
+  starsEl.appendChild(st);
+}
+
+function phase(){
+  var h=new Date().getHours();
+  if(h>=5&&h<8)return 'dawn';
+  if(h>=8&&h<16)return 'day';
+  if(h>=16&&h<20)return 'dusk';
+  return 'night';
+}
+document.body.dataset.phase=phase();
+
+function plantMarkupFull(plant,idx){
+  var H=12+(plant?plant.progress*116:0);
+  var svg='<svg viewBox="0 0 100 140">';
+  svg+='<defs><clipPath id="clip'+idx+'"><rect x="-8" y="'+r1(126-H)+'" width="116" height="'+r1(H)+'"/></clipPath></defs>';
+  if(plant) svg+='<g clip-path="url(#clip'+idx+')">'+plantMarkup(plant.name)+'</g>';
+  if(!plant) svg+='<circle cx="50" cy="124" r="14" fill="none" stroke="rgba(233,224,207,.16)" stroke-dasharray="2 4"/>';
+  svg+='<ellipse cx="50" cy="128" rx="44" ry="12" fill="var(--soilL)"/>';
+  svg+='<ellipse cx="50" cy="130" rx="32" ry="6" fill="var(--soilD)"/>';
+  svg+='</svg>';
+  return svg+(plant&&plant.bloomed?'<div class="name">'+esc(cap(plant.name))+'</div>':'');
+}
+
+function render(){
+  for(var i=0;i<9;i++){
+    var plant=state.plants[i], bed=beds[i];
+    var sig=plant?(Math.floor(plant.progress*80)*2+(plant.bloomed?1:0)):-1;
+    if(bed.dataset.sig!==String(sig)){
+      bed.dataset.sig=String(sig);
+      bed.innerHTML=plantMarkupFull(plant,i);
+      bed.classList.toggle('bloomed',!!(plant&&plant.bloomed));
+      bed.classList.toggle('empty',!plant);
+    }
+    bed.classList.toggle('watering',pointers.has(i));
+  }
+  counters();
+}
+
+function counters(){
+  var bloomed=0,seeds=0;
+  for(var i=0;i<9;i++){
+    if(state.plants[i]){seeds++; if(state.plants[i].bloomed)bloomed++;}
+  }
+  if(seeds===0) countEl.textContent='nothing yet. the soil is patient.';
+  else countEl.textContent=bloomed+' false thing'+(bloomed===1?'':'s')+' in bloom, '+seeds+' seed'+(seeds===1?'':'s')+' in the ground.';
+  if(seeds===0) hintEl.textContent='tap the soil to plant. hold it to water.';
+  else hintEl.textContent='hold the soil to water — names surface at full';
+}
+
+function renderLog(){
+  var html='';
+  for(var i=0;i<state.log.length;i++) html+='<div>'+esc(state.log[i])+'</div>';
+  logEl.innerHTML=html;
+}
+
+function addLog(msg){
+  state.log.unshift(msg);
+  if(state.log.length>5) state.log.pop();
+  renderLog();
+}
+
+function bloom(i){
+  var p=state.plants[i];
+  p.bloomed=true;
+  addLog('a false thing surfaced: "'+cap(p.name)+'"');
+  var all=true;
+  for(var j=0;j<9;j++) if(!(state.plants[j]&&state.plants[j].bloomed)){all=false;break;}
+  if(all&&!state.full){
+    state.full=true;
+    document.body.classList.add('fullmoon');
+    addLog('all nine beds are in bloom. the moon noticed.');
+  }
+  save();
+}
+
+function plantAt(i){
+  if(state.plants[i]) return;
+  var name=genName(usedNames);
+  state.plants[i]={id:String(Date.now())+i,name:name,progress:0,bloomed:false,at:Date.now()};
+  usedNames.add(name);
+  addLog('a seed went into the ground.');
+  save();
+}
+
+var pointers=new Map();
+var lastTs=new Map();
+var anim=null;
+
+plot.addEventListener('pointerdown',function(e){
+  e.preventDefault();
+  var bed=e.target.closest?e.target.closest('.bed'):null;
+  if(!bed) return;
+  var i=+bed.dataset.index;
+  if(!state.plants[i]) plantAt(i);
+  if(state.plants[i].bloomed) return;
+  if(pointers.has(i)) return;
+  pointers.set(i,e.pointerId);
+  lastTs.set(i,performance.now());
+  try{bed.setPointerCapture(e.pointerId);}catch(err){}
+  if(!anim) anim=requestAnimationFrame(step);
+});
+
+function release(e){
+  var changed=false;
+  pointers.forEach(function(pid,i){
+    if(pid===e.pointerId){pointers.delete(i);lastTs.delete(i);changed=true;}
+  });
+  if(changed) save();
+  if(pointers.size===0&&anim){cancelAnimationFrame(anim);anim=null;}
+}
+plot.addEventListener('pointerup',release);
+plot.addEventListener('pointercancel',release);
+plot.addEventListener('pointerleave',release);
+
+function step(ts){
+  pointers.forEach(function(pid,i){
+    var p=state.plants[i];
+    if(!p) return;
+    var lt=lastTs.get(i)||ts;
+    var dt=Math.min(100,ts-lt);
+    lastTs.set(i,ts);
+    if(!p.bloomed){
+      p.progress=Math.min(1,p.progress+dt/3300);
+      if(p.progress>=1) bloom(i);
+    }
+  });
+  render();
+  if(pointers.size) anim=requestAnimationFrame(step);
+  else{anim=null;save();}
+}
+
+document.getElementById('accountBtn').addEventListener('click',function(){
+  pointers.clear(); lastTs.clear();
+  if(anim){cancelAnimationFrame(anim);anim=null;}
+  save();
+  document.body.classList.add('in-account');
+});
+document.getElementById('backBtn').addEventListener('click',function(){
+  document.body.classList.remove('in-account');
+});
+
+if(state.full) document.body.classList.add('fullmoon');
+render();
+renderLog();
+</script>
+</body>
+</html>

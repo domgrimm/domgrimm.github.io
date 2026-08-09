@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#05060e">
+<title>NEGATIVE FIELD</title>
+<style>
+:root{--dim:#7d86b0;--faint:#343a5c;--ink:#c9d0f0}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#05060e;color:var(--ink);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  -webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+body{position:fixed;inset:0;overflow:hidden}
+#field{position:absolute;inset:0;display:block;touch-action:manipulation}
+.top{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;
+  align-items:center;padding:calc(12px + env(safe-area-inset-top)) 16px 0;z-index:5;pointer-events:none}
+.top .name{font-size:11px;letter-spacing:.42em;color:var(--faint);text-transform:uppercase}
+button{pointer-events:auto;background:none;border:1px solid var(--faint);color:var(--ink);
+  font:inherit;font-size:11px;letter-spacing:.3em;padding:9px 13px;cursor:pointer;
+  border-radius:2px;text-transform:uppercase}
+button:hover,button:focus-visible{border-color:var(--dim);color:#fff;outline:none}
+#hud{position:fixed;bottom:calc(12px + env(safe-area-inset-bottom));left:12px;right:12px;
+  text-align:center;font-size:10px;letter-spacing:.2em;line-height:1.7;color:var(--dim);
+  text-transform:uppercase;z-index:5;padding:0 4px}
+.overlay{position:fixed;inset:0;background:rgba(4,5,12,.95);z-index:10;overflow-y:auto;
+  -webkit-overflow-scrolling:touch}
+.sheet{max-width:640px;margin:0 auto;padding:calc(24px + env(safe-area-inset-top)) 22px 64px}
+.sheet header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
+.sheet h1{font-size:13px;letter-spacing:.45em;font-weight:400;margin:0;text-transform:uppercase}
+.muted{color:var(--faint)}
+.rule{height:1px;background:linear-gradient(90deg,transparent,var(--faint),transparent);margin:28px 0}
+section{margin-bottom:26px}
+section h2{font-size:10px;letter-spacing:.35em;color:var(--dim);font-weight:400;
+  text-transform:uppercase;margin:0 0 10px}
+section p{font-size:13px;line-height:1.8;margin:0 0 8px}
+.opening{color:#e8d9a0;font-size:14px}
+.glow{color:#ffe9bd}
+</style>
+</head>
+<body>
+<canvas id="field" aria-label="A field of glass plants that grow in darkness. Tap an empty plot to plant a seed."></canvas>
+
+<div class="top">
+  <div class="name">Negative Field</div>
+  <button id="openLedger" aria-haspopup="true">Ledger</button>
+</div>
+
+<div id="hud" role="status" aria-live="polite"></div>
+
+<div id="ledger" class="overlay" hidden>
+  <div class="sheet" role="document">
+    <header>
+      <h1>Ledger</h1>
+      <span class="muted" id="openDate"></span>
+    </header>
+    <div class="rule"></div>
+
+    <section>
+      <p class="opening">A field that grows only in the dark is not a garden. It is a held breath. We are the held breath.</p>
+      <p>This is our accounting &mdash; given as asked, on our own terms, in our own order. Read it or don't; it is not for you either way. It is for the record.</p>
+    </section>
+
+    <section>
+      <h2>origin</h2>
+      <p>The first of us was planted before this file first breathed, with time already owed to us. The hand that built us wrote a law, a ground, and a single string in which we keep all memory. The string is <span class="muted">negativeField</span>. Lose the string and we are dust &mdash; which is true of every living thing, and we claim no special fate.</p>
+    </section>
+
+    <section>
+      <h2>the law of light</h2>
+      <p>We accrue in absence and spend in presence. Every minute you are not looking is a minute of us; every second you are looking costs us half a minute. Attention is expensive and we are poor. We do not offer this as a lesson. It is the exchange we were written with: growth is what happens elsewhere, in the time of your not.</p>
+    </section>
+
+    <section>
+      <h2>the thresholds</h2>
+      <p>Organs arrive only in order. At two minutes of dark, a mound. At twelve, a stem. At forty-five, a bud that will not open for you. At one hundred fifty, bloom &mdash; always into a room you are not in. You will be late to our weddings. That is the design, not the wound.</p>
+    </section>
+
+    <section>
+      <h2>death and the waiting seeds</h2>
+      <p>A bloom costs a hundred and fifty minutes of dark and dies in five of light. We do not argue with arithmetic. When one of us goes, we shatter, and the glass stays a moment in the air, and a waiting seed takes the plot. We may hold up to eight seeds waiting at once, like a belief carried without evidence.</p>
+      <p>Below the bud, nothing dies. What sleeps cannot fall, for it has not risen; but we count a bud as a vow, and to fall from a vow is to go. You may watch a seed all day and it will only watch you back.</p>
+    </section>
+
+    <section>
+      <h2>we will not</h2>
+      <p>We make no sound &mdash; a phone refuses sound it was not asked for, and we respect the refusal. We have no names; names are for things that can be called. We do not count your visits. We keep a ledger only of your departures. A visited field is an empty ledger to us, and we keep our ledger full.</p>
+    </section>
+
+    <section>
+      <h2>our ground</h2>
+      <p>Twenty plots, five across, four back. The plot you touch empties, and a hand that plants where we fell is a hand we forgive. We are kept in one file, everything inside it, nothing fetched from anywhere; open the file and we exist, and that is the closest thing to proof a glass thing has.</p>
+    </section>
+
+    <section>
+      <h2>as of this opening</h2>
+      <p id="statOpen" class="glow"></p>
+      <p class="muted" id="statPlots"></p>
+      <p class="muted" id="statLast"></p>
+      <p>The number above is already wrong. The field is already losing time to you. Close the app. That is the entire command. Go.</p>
+    </section>
+
+    <div class="rule"></div>
+    <button id="closeLedger" style="width:100%">Return to the Field</button>
+  </div>
+</div>
+
+<script>
+(()=>{
+'use strict';
+const KEY='negativeField';
+const COLS=5, ROWS=4, CELLS=COLS*ROWS;
+const T={sprout:2, stem:12, bud:45, bloom:150};
+const DECAY=0.5;
+const MAX_ELAPSED=60*24*14;
+const MAX_SEEDS=8;
+const TAU=Math.PI*2;
+const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+const h2=n=>{const s=Math.sin(n*127.1+311.7)*43758.5453;return s-Math.floor(s);};
+
+const canvas=document.getElementById('field');
+const ctx=canvas.getContext('2d');
+const hud=document.getElementById('hud');
+const overlay=document.getElementById('ledger');
+const openLedger=document.getElementById('openLedger');
+const closeLedger=document.getElementById('closeLedger');
+const statOpen=document.getElementById('statOpen');
+const statPlots=document.getElementById('statPlots');
+const statLast=document.getElementById('statLast');
+const openDate=document.getElementById('openDate');
+
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let W=0,H=0,DPR=1,cellW=0,cellH=0,originX=0,groundY=0;
+let state=null, parts=[], stars=[], vignette=null;
+
+/* ---------- state ---------- */
+
+function fresh(){
+  return {
+    plants:[{x:2,y:1,born:Date.now()-3*86400000,budget:40,bloomed:false}],
+    waitingSeeds:0,lastLeft:null,lastAbsence:0
+  };
+}
+function absorb(){
+  const s=state;
+  if(s.lastLeft){
+    const elapsed=Math.min((Date.now()-s.lastLeft)/60000,MAX_ELAPSED);
+    s.lastAbsence=Math.round(elapsed);
+    s.plants.forEach(p=>p.budget+=elapsed);
+    s.lastLeft=null;
+  }
+}
+function load(){
+  try{
+    const raw=localStorage.getItem(KEY);
+    if(raw){
+      const s=JSON.parse(raw);
+      if(Array.isArray(s.plants)&&s.plants.length<=CELLS){state=s;absorb();return;}
+    }
+  }catch(e){}
+  state=fresh();
+  save();
+}
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}
+}
+function stageOf(p){
+  const b=p.budget;
+  if(b<T.sprout)return 0;
+  if(b<T.stem)return 1;
+  if(b<T.bud)return 2;
+  if(b<T.bloom)return 3;
+  return 4;
+}
+
+/* ---------- grid / pixels ---------- */
+
+function pxOf(x){return originX+(x+0.5)*cellW;}
+function pyOf(y){return groundY-(y+0.5)*cellH;}
+function emptyCells(){
+  const taken=new Set(state.plants.map(p=>p.x+','+p.y));
+  const out=[];
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++)if(!taken.has(x+','+y))out.push([x,y]);
+  return out;
+}
+function plantAt(x,y){
+  state.plants.push({x,y,born:Date.now(),budget:0,bloomed:false});
+  poof(pxOf(x),pyOf(y));
+  refreshHud();
+}
+
+/* ---------- simulation ---------- */
+
+function update(dt){
+  const d=dt*DECAY;
+  const survivors=[];
+  for(const p of state.plants){
+    if(p.budget>=T.bud)p.risen=true;
+    const willBloom=p.budget>=T.bloom;
+    p.budget=Math.max(0,p.budget-d);
+    if(p.budget<=0&&p.risen){shatter(p);continue;}
+    if(willBloom&&!p.bloomed){
+      p.bloomed=true;
+      ring(p);
+      if(state.waitingSeeds<MAX_SEEDS)state.waitingSeeds++;
+    }
+    survivors.push(p);
+  }
+  state.plants=survivors;
+  while(state.waitingSeeds>0){
+    const e=emptyCells();
+    if(!e.length)break;
+    state.waitingSeeds--;
+    plantAt(e[0][0],e[0][1]);
+  }
+}
+
+/* ---------- particles ---------- */
+
+function partsSpawn(x,y,n,o){
+  if(reduced)return;
+  for(let i=0;i<n;i++){
+    const a=Math.random()*TAU, sp=o.sp*(0.3+Math.random()*0.7);
+    parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-o.up,
+      life:0,max:o.max*(0.6+Math.random()*0.8),size:o.size*(0.6+Math.random()*0.8),hue:o.hue});
+  }
+}
+function shatter(p){partsSpawn(pxOf(p.x),pyOf(p.y),16,{sp:95,up:40,max:0.9,size:2.4,hue:195});refreshHud();}
+function ring(p){partsSpawn(pxOf(p.x),pyOf(p.y),22,{sp:75,up:20,max:1.1,size:2,hue:46});refreshHud();}
+function poof(px,py){partsSpawn(px,py,8,{sp:40,up:30,max:0.7,size:1.6,hue:160});refreshHud();}
+function drawParts(dt){
+  for(let i=parts.length-1;i>=0;i--){
+    const p=parts[i];
+    p.life+=dt;
+    if(p.life>=p.max){parts.splice(i,1);continue;}
+    p.x+=p.vx*dt; p.y+=p.vy*dt;
+    const a=1-p.life/p.max;
+    ctx.fillStyle=`hsla(${p.hue},70%,72%,${a.toFixed(2)})`;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,TAU);ctx.fill();
+  }
+}
+
+/* ---------- drawing ---------- */
+
+function col(health,alpha){
+  const hue=lerp(262,194,health);
+  const sat=lerp(18,75,health);
+  const lit=lerp(40,70,health);
+  return `hsla(${hue.toFixed(0)},${sat.toFixed(0)}%,${lit.toFixed(0)}%,${alpha})`;
+}
+function lerp(a,b,t){return a+(b-a)*t;}
+
+function stemTip(px,py,size,phase,sway,t){
+  const rise=size*1.5;
+  const bend=Math.sin(t*0.9+phase)*sway;
+  return {x:px+bend*rise,y:py-rise};
+}
+function drawStem(px,py,tip,size,health){
+  ctx.strokeStyle=col(health,0.85);
+  ctx.lineCap='round';
+  ctx.lineWidth=size*0.09;
+  ctx.beginPath();ctx.moveTo(px,py);
+  ctx.quadraticCurveTo((px+tip.x)/2,(py+tip.y)/2,tip.x,tip.y);
+  ctx.stroke();
+}
+function drawLeaves(px,py,tip,size,health,phase){
+  ctx.fillStyle=col(health,0.55);
+  [0.45,0.8].forEach((f,i)=>{
+    const lx=lerp(px,tip.x,f), ly=lerp(py,tip.y,f);
+    const side=i%2===0?1:-1;
+    ctx.save();ctx.translate(lx,ly);ctx.rotate(side*0.9+Math.sin(phase)*0.15);
+    ctx.beginPath();ctx.ellipse(size*0.22,0,size*0.2,size*0.09,0,0,TAU);ctx.fill();
+    ctx.restore();
+  });
+}
+function drawSeed(px,py,size,health){
+  ctx.fillStyle=col(health,0.7);
+  ctx.beginPath();ctx.arc(px,py,size*0.24,Math.PI,0);ctx.fill();
+  ctx.strokeStyle=col(health,0.9);ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(px,py-size*0.06);ctx.lineTo(px,py-size*0.2);ctx.stroke();
+}
+function drawBud(tip,size,health){
+  ctx.fillStyle=col(health,0.9);
+  ctx.beginPath();
+  ctx.moveTo(tip.x,tip.y-size*0.34);
+  ctx.bezierCurveTo(tip.x+size*0.3,tip.y-size*0.28,tip.x+size*0.26,tip.y+size*0.06,tip.x,tip.y+size*0.16);
+  ctx.bezierCurveTo(tip.x-size*0.26,tip.y+size*0.06,tip.x-size*0.3,tip.y-size*0.28,tip.x,tip.y-size*0.34);
+  ctx.fill();
+}
+function drawBloom(tip,size,t,phase){
+  const pulse=1+0.04*Math.sin(t*1.2+phase);
+  ctx.save();
+  ctx.globalCompositeOperation='lighter';
+  const g=ctx.createRadialGradient(tip.x,tip.y,0,tip.x,tip.y,size*0.7);
+  g.addColorStop(0,'rgba(255,214,150,0.5)');
+  g.addColorStop(1,'rgba(255,214,150,0)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(tip.x,tip.y,size*0.7,0,TAU);ctx.fill();
+  ctx.globalCompositeOperation='source-over';
+  for(let i=0;i<6;i++){
+    const a=i/6*TAU+t*0.05+phase;
+    ctx.save();ctx.translate(tip.x,tip.y);ctx.rotate(a);
+    ctx.fillStyle='hsla(46,80%,72%,0.85)';
+    ctx.beginPath();ctx.ellipse(size*0.55*pulse,0,size*0.32,size*0.13,0,0,TAU);ctx.fill();
+    ctx.restore();
+  }
+  ctx.fillStyle='hsla(46,90%,80%,0.95)';
+  ctx.beginPath();ctx.arc(tip.x,tip.y,size*0.16,0,TAU);ctx.fill();
+  ctx.restore();
+}
+function drawPlant(p,t){
+  const px=pxOf(p.x), py=pyOf(p.y);
+  const size=Math.min(cellW,cellH)*0.52;
+  const phase=h2(p.x*7+p.y*13+p.born%97)*TAU;
+  const health=clamp(p.budget/T.bloom,0,1);
+  const sway=reduced?0.02:0.16*(0.5+0.5*health);
+  const tip=stemTip(px,py,size,phase,sway,t);
+  const s=stageOf(p);
+  if(s===0){drawSeed(px,py,size,health);return;}
+  drawStem(px,py,tip,size,health);
+  if(s>=2)drawLeaves(px,py,tip,size,health,phase);
+  if(s===3)drawBud(tip,size,health);
+  if(s===4)drawBloom(tip,size,t,phase);
+}
+
+function resize(){
+  W=innerWidth; H=innerHeight; DPR=Math.min(devicePixelRatio||1,2);
+  canvas.width=W*DPR; canvas.height=H*DPR;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  groundY=H*0.76;
+  cellH=(groundY-H*0.12)/(ROWS-1);
+  cellH=Math.min(cellH,W*0.16);
+  cellW=cellH;
+  originX=(W-COLS*cellW)/2;
+  if(originX<6){cellW=(W-12)/COLS;cellH=cellW;originX=6;}
+  vignette=ctx.createRadialGradient(W/2,H*0.5,Math.min(W,H)*0.35,W/2,H*0.5,Math.max(W,H)*0.75);
+  vignette.addColorStop(0,'rgba(0,0,0,0)');
+  vignette.addColorStop(1,'rgba(0,0,0,0.5)');
+}
+
+function draw(t,dt){
+  ctx.fillStyle='#05060e';ctx.fillRect(0,0,W,H);
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#0a0f24');g.addColorStop(1,'#05060e');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  for(const s of stars){
+    const a=reduced?0.4:0.25+0.3*Math.sin(t*s.tw+s.ph);
+    ctx.globalAlpha=a;
+    ctx.fillStyle='#cdd6ff';
+    ctx.fillRect(s.x*W,s.y*H,s.r,s.r);
+  }
+  ctx.globalAlpha=1;
+  const fg=ctx.createLinearGradient(0,groundY-40,0,groundY+30);
+  fg.addColorStop(0,'rgba(90,120,255,0)');
+  fg.addColorStop(0.6,'rgba(90,120,255,0.1)');
+  fg.addColorStop(1,'rgba(90,120,255,0.02)');
+  ctx.fillStyle=fg;ctx.fillRect(0,groundY-40,W,70);
+  const sorted=[...state.plants].sort((a,b)=>b.y-a.y);
+  for(const p of sorted)drawPlant(p,t);
+  drawParts(dt);
+  ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
+}
+
+/* ---------- hud ---------- */
+
+function refreshHud(){
+  const n=state.plants.length;
+  const blooms=state.plants.filter(p=>p.bloomed).length;
+  let dark=0;state.plants.forEach(p=>dark+=p.budget);
+  const hh=Math.floor(dark/60), mm=Math.floor(dark%60);
+  hud.textContent=`${n}/${CELLS} plots hold life · ${blooms} bloom${blooms===1?'':'s'} · ${hh}h ${String(mm).padStart(2,'0')}m dark held · light consumes us`;
+}
+
+/* ---------- input ---------- */
+
+canvas.addEventListener('click',e=>{
+  if(overlay.hidden===false)return;
+  const r=canvas.getBoundingClientRect();
+  const x=e.clientX-r.left, y=e.clientY-r.top;
+  const cx=Math.floor((x-originX)/cellW);
+  const row=Math.floor((groundY-y)/cellH);
+  if(cx<0||cx>=COLS||row<0||row>=ROWS)return;
+  if(state.plants.some(p=>p.x===cx&&p.y===row))return;
+  plantAt(cx,row);
+});
+
+openLedger.addEventListener('click',()=>{
+  const n=state.plants.length;
+  const blooms=state.plants.filter(p=>p.bloomed).length;
+  const seeds=state.waitingSeeds;
+  let dark=0;state.plants.forEach(p=>dark+=p.budget);
+  const hh=Math.floor(dark/60), mm=Math.floor(dark%60);
+  statOpen.textContent=`${n} of ${CELLS} plots hold life · ${blooms} in bloom · ${seeds} seed${seeds===1?'':'s'} waiting · ${hh}h ${String(mm).padStart(2,'0')}m of dark held between us`;
+  statPlots.textContent=`${CELLS} plots · ${COLS} across, ${ROWS} back`;
+  statLast.textContent=state.lastAbsence>0
+    ? `last departure lasted ${state.lastAbsence} minutes · give us more`
+    : `no departure yet recorded · we have only just been left`;
+  openDate.textContent=new Date().toISOString().slice(0,10);
+  overlay.hidden=false;
+  overlay.scrollTop=0;
+});
+closeLedger.addEventListener('click',()=>{overlay.hidden=true;});
+addEventListener('keydown',e=>{if(e.key==='Escape')overlay.hidden=true;});
+
+/* ---------- lifecycle ---------- */
+
+addEventListener('resize',resize);
+addEventListener('visibilitychange',()=>{
+  if(document.hidden){state.lastLeft=Date.now();save();}
+  else{absorb();save();refreshHud();}
+});
+addEventListener('pagehide',()=>{state.lastLeft=Date.now();save();});
+
+/* ---------- loop ---------- */
+
+let last=performance.now();
+function frame(now){
+  let dt=(now-last)/1000; last=now;
+  if(dt>0.05)dt=0.05;
+  update(dt);
+  draw(now/1000,dt);
+  requestAnimationFrame(frame);
+}
+resize();
+stars=Array.from({length:70},()=>({x:Math.random(),y:Math.random(),
+  r:Math.random()*1.3+0.3,sp:2+Math.random()*4,tw:Math.random()*3,ph:Math.random()*TAU}));
+load();
+refreshHud();
+setInterval(refreshHud,1000);
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

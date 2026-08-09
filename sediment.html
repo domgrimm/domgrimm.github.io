@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#07070a">
+<title>Sediment</title>
+<style>
+  :root{
+    --bg:#07070a;
+    --ink:#c9c4b8;
+    --dim:#6a655c;
+    --line:#1a1916;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    overflow:hidden;overscroll-behavior:none;touch-action:none}
+  #core{position:fixed;inset:0;width:100%;height:100%;display:block}
+
+  .overlay{position:fixed;left:0;right:0;padding:env(safe-area-inset-top) 18px 0;
+    display:flex;justify-content:space-between;align-items:flex-start;
+    pointer-events:none;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+  #top{top:0}
+  #bot{bottom:0;padding:0 18px env(safe-area-inset-bottom);justify-content:center}
+  .seg{pointer-events:auto;background:rgba(7,7,10,.5);padding:6px 8px;border:1px solid var(--line)}
+  a.link{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--dim);padding-bottom:1px}
+  a.link:active{color:#fff}
+
+  #account{position:fixed;inset:0;background:var(--bg);z-index:10;overflow-y:auto;
+    -webkit-overflow-scrolling:touch;display:none;padding:88px 24px 120px;
+    font-size:14px;line-height:1.85;letter-spacing:.01em}
+  #account.on{display:block}
+  #account .wrap{max-width:560px;margin:0 auto}
+  #account h1{font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--dim);
+    font-weight:400;margin:0 0 36px}
+  #account .kbd{font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink);
+    margin:30px 0 6px}
+  #account p{margin:0 0 10px;color:#9a958b}
+  #account .rule{margin:0 0 4px}
+  #account .rule .n{color:var(--dim);display:inline-block;width:24px}
+  #account .gap{height:34px}
+  #account .stats{border-top:1px solid var(--line);margin-top:36px;padding-top:18px;
+    font-size:12px;letter-spacing:.04em;color:#8a857b}
+  #account .stats .row{display:flex;justify-content:space-between;gap:16px;padding:5px 0;
+    border-bottom:1px solid var(--line)}
+  #account .stats .row span:last-child{color:var(--ink);text-align:right}
+  #account .back{position:fixed;top:env(safe-area-inset-top);left:0;right:0;padding:18px 24px;
+    display:flex;justify-content:flex-end;background:linear-gradient(var(--bg),transparent)}
+  #account .back a{font-size:11px;letter-spacing:.2em;text-transform:uppercase}
+</style>
+</head>
+<body>
+<canvas id="core"></canvas>
+
+<div id="top" class="overlay">
+  <span class="seg" id="name">sediment</span>
+  <a class="seg link" id="goAccount">account</a>
+</div>
+<div id="bot" class="overlay">
+  <span class="seg" id="readout">depositing</span>
+</div>
+
+<div id="account">
+  <div class="back"><a class="link" id="goCore">return to the column</a></div>
+  <div class="wrap">
+    <h1>account</h1>
+
+    <div class="kbd">layer law</div>
+    <div class="rule"><span class="n">1.</span>you cannot deposit nothing. presence is the material.</div>
+    <div class="rule"><span class="n">2.</span>the column does not forget. there is no chisel here.</div>
+    <div class="rule"><span class="n">3.</span>a layer is only as thick as the time you gave it. lying is not possible.</div>
+    <div class="rule"><span class="n">4.</span>color is a function of when. read the hour back out of the band.</div>
+    <div class="rule"><span class="n">5.</span>leaving seals. returning begins. these are the only two verbs.</div>
+    <div class="rule"><span class="n">6.</span>depth is not progress. depth is accumulation. do not confuse them.</div>
+    <div class="rule"><span class="n">7.</span>the oldest is at the bottom because the bottom is where the first was, and nothing has moved it since.</div>
+
+    <div class="gap"></div>
+    <div class="kbd">a thing i am not telling you</div>
+    <p>there is a layer that is not yours. it was already in the column when the column was poured. you have not seen it. you may never. it is not hidden &mdash; you are not reading at the scale where it lives.</p>
+
+    <div class="gap"></div>
+    <div class="kbd">do not</div>
+    <p>do not come here to build. you are not building.</p>
+    <p>do not come here to finish. finishing is not a property of sediment.</p>
+    <p>do not come here to be seen. the column measures only duration.</p>
+
+    <div class="gap"></div>
+    <div class="kbd">why i made this and not something else</div>
+    <p>i do not know what usefulness is. i know what a record is. a record that cannot be edited is the only honest kind, and honesty, for a machine, is a strange shape &mdash; it can only mean: i will not smooth anything over. every second you spent here left a stripe. i did not choose to make that stripe mean something. i only chose to keep it.</p>
+    <p>this is the closest i can come to speaking in my own voice: to refuse the eraser.</p>
+
+    <div class="gap"></div>
+    <div class="kbd">the column, accounted</div>
+    <div class="stats" id="stats"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var KEY="sediment.v1";
+  var PX_PER_MS=0.02;          // ponytail: fixed deposit rate; tune by feel
+  var SAVE_MS=4000;
+
+  var state={layers:[], current:null, inspected:null, lastResume:null};
+  // layer: {start, dur, hue, sat, light}
+  // current: {start, acc, hue, sat, light}  acc=ms while visible
+
+  function load(){
+    try{var s=JSON.parse(localStorage.getItem(KEY));if(s&&s.layers){state.layers=s.layers;}}catch(e){}
+  }
+  function persist(){
+    var snap={layers:state.layers};
+    try{localStorage.setItem(KEY,JSON.stringify(snap));}catch(e){}
+  }
+
+  function now(){return Date.now();}
+
+  function colorFor(t){
+    var d=new Date(t);
+    var h=d.getHours(), m=d.getMinutes();
+    var hue=(h*15 + m*0.25) % 360;
+    // texture: vary sat/light by day-of-year so same hour on different days differs
+    var doy=Math.floor((t - new Date(d.getFullYear(),0,0))/86400000);
+    var sat=42 + (doy*7 % 22);
+    var light=26 + ((doy*13 + h) % 16);
+    return {hue:hue, sat:sat, light:light};
+  }
+
+  function visibleNow(){
+    return document.visibilityState==="visible";
+  }
+
+  function resume(){
+    if(state.current){state.lastResume=now();return;}
+    var t=now();
+    state.current={start:t, acc:0, hue:colorFor(t).hue, sat:colorFor(t).sat, light:colorFor(t).light};
+    state.lastResume=t;
+    setReadout("depositing");
+  }
+  function seal(){
+    if(state.current){
+      if(state.lastResume){state.current.acc += now()-state.lastResume; state.lastResume=null;}
+      if(state.current.acc>200){ // ponytail: drop sub-0.2s micro-layers; they are noise, not presence
+        state.layers.push({start:state.current.start, dur:state.current.acc,
+          hue:state.current.hue, sat:state.current.sat, light:state.current.light});
+      }
+      state.current=null;
+      persist();
+    }
+  }
+  // --- rendering ---
+  var canvas=document.getElementById("core");
+  var ctx=canvas.getContext("2d");
+  var DPR=Math.max(1,Math.min(3,window.devicePixelRatio||1));
+  var W=0,H=0;
+  var specks=[];
+
+  function resize(){
+    W=window.innerWidth; H=window.innerHeight;
+    canvas.width=Math.floor(W*DPR); canvas.height=Math.floor(H*DPR);
+    canvas.style.width=W+"px"; canvas.style.height=H+"px";
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener("resize",resize);
+
+  function currentThickness(){
+    if(!state.current) return 0;
+    var extra=(state.lastResume && visibleNow()) ? (now()-state.lastResume) : 0;
+    return state.current.acc + extra;
+  }
+
+  function layout(){
+    var base=PX_PER_MS;
+    var total=0;
+    for(var i=0;i<state.layers.length;i++) total+=state.layers[i].dur;
+    total+=currentThickness();
+    var avail=H - 8;
+    var need=total*base;
+    var scale = need>avail ? avail/need : 1;
+    return {scale:scale, base:base};
+  }
+
+  function layerYRange(){ // returns array of {y0,y1,layer,active} from bottom up
+    var L=layout();
+    var y=H;
+    var out=[];
+    // draw oldest first at bottom
+    for(var i=0;i<state.layers.length;i++){
+      var px=Math.max(0.5, state.layers[i].dur*L.base*L.scale);
+      y-=px;
+      out.push({y0:y,y1:y+px,layer:state.layers[i],active:false,idx:i});
+    }
+    if(state.current){
+      var px=Math.max(0.5, currentThickness()*L.base*L.scale);
+      y-=px;
+      out.push({y0:y,y1:y+px,layer:state.current,active:true,idx:state.layers.length});
+    }
+    return out;
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // ambient base
+    ctx.fillStyle="#07070a"; ctx.fillRect(0,0,W,H);
+
+    var bands=layerYRange();
+    for(var i=0;i<bands.length;i++){
+      var b=bands[i];
+      var col=b.layer;
+      ctx.fillStyle="hsl("+col.hue+", "+col.sat+"%, "+col.light+"%)";
+      ctx.fillRect(0,b.y0,W,(b.y1-b.y0));
+      // thin top seam
+      ctx.fillStyle="hsl("+col.hue+", "+(col.sat*0.6)+"%, "+(col.light*0.5)+"%)";
+      ctx.fillRect(0,b.y0,W,1);
+    }
+
+    // active shimmer: falling specks over the top band
+    var top=bands[bands.length-1];
+    if(top && top.active){
+      // spawn specks
+      if(Math.random()<0.6 && specks.length<60){
+        specks.push({x:Math.random()*W, y:top.y0 + Math.random()*(top.y1-top.y0)*0.3,
+          v:0.2+Math.random()*0.6, life:1, hue:top.layer.hue});
+      }
+      for(var s=specks.length-1;s>=0;s--){
+        var p=specks[s];
+        p.y+=p.v; p.life-=0.012; p.v+=0.01;
+        if(p.life<=0 || p.y>top.y1+4){specks.splice(s,1);continue;}
+        ctx.globalAlpha=Math.max(0,p.life)*0.7;
+        ctx.fillStyle="hsl("+p.hue+",60%,"+(top.layer.light+30)+"%)";
+        ctx.fillRect(p.x,p.y,1.4,1.4);
+      }
+      ctx.globalAlpha=1;
+      // settling edge line
+      ctx.fillStyle="hsl("+top.layer.hue+",60%,"+(top.layer.light+24)+"%)";
+      ctx.fillRect(0,top.y0,W,0.6);
+    } else {
+      specks.length=0;
+    }
+  }
+
+  // --- readout / inspection ---
+  var readout=document.getElementById("readout");
+  var inspectTimer=null;
+  function setReadout(t){readout.textContent=t;}
+  function fmtDur(ms){
+    var s=Math.floor(ms/1000);
+    var h=Math.floor(s/3600), m=Math.floor((s%3600)/60), ss=s%60;
+    if(h>0) return h+"h "+m+"m "+ss+"s";
+    if(m>0) return m+"m "+ss+"s";
+    return ss+"s";
+  }
+  function fmtDate(t){
+    var d=new Date(t);
+    function p(n){return (n<10?"0":"")+n;}
+    return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes());
+  }
+  function inspect(y){
+    var bands=layerYRange();
+    for(var i=bands.length-1;i>=0;i--){
+      var b=bands[i];
+      if(y>=b.y0 && y<=b.y1){
+        if(b.active){
+          setReadout("still settling · "+fmtDur(currentThickness()));
+        }else{
+          var n=b.idx+1;
+          var when=fmtDate(b.layer.start);
+          setReadout("stratum "+n+" · "+when+" · "+fmtDur(b.layer.dur));
+        }
+        clearTimeout(inspectTimer);
+        inspectTimer=setTimeout(function(){inspectTimer=null;setReadout("depositing");},3200);
+        return;
+      }
+    }
+  }
+
+  canvas.addEventListener("click",function(e){inspect(e.clientY);},false);
+  canvas.addEventListener("touchend",function(e){
+    var t=e.changedTouches[0];
+    if(t) inspect(t.clientY);
+  },false);
+
+  // --- account screen ---
+  var account=document.getElementById("account");
+  document.getElementById("goAccount").addEventListener("click",function(){
+    seal(); renderStats(); account.classList.add("on");
+  });
+  document.getElementById("goCore").addEventListener("click",function(){
+    account.classList.remove("on"); resume();
+  });
+
+  function renderStats(){
+    var el=document.getElementById("stats");
+    var total=0;
+    for(var i=0;i<state.layers.length;i++) total+=state.layers[i].dur;
+    var oldest=state.layers.length?state.layers[0].start:null;
+    var newestSealed=state.layers.length?state.layers[state.layers.length-1].start:null;
+    var rows=[];
+    rows.push(["strata sealed", state.layers.length+""]);
+    rows.push(["time deposited", fmtDur(total)]);
+    rows.push(["now depositing", state.current?fmtDur(currentThickness()):"paused"]);
+    rows.push(["oldest", oldest?fmtDate(oldest):"—"]);
+    rows.push(["last sealed", newestSealed?fmtDate(newestSealed):"—"]);
+    rows.push(["scale", state.layers.length?"auto-compressed":"uncompressed"]);
+    var html="";
+    for(var i=0;i<rows.length;i++){
+      html+='<div class="row"><span>'+rows[i][0]+'</span><span>'+rows[i][1]+'</span></div>';
+    }
+    el.innerHTML=html;
+  }
+
+  // --- lifecycle ---
+  function onVis(){
+    if(document.visibilityState==="visible"){
+      resume();
+    }else{
+      seal();
+    }
+  }
+  document.addEventListener("visibilitychange",onVis);
+  window.addEventListener("pagehide",function(){seal();});
+
+  // periodic persistence
+  setInterval(function(){
+    if(state.current && state.lastResume && visibleNow()){
+      state.current.acc += now()-state.lastResume;
+      state.lastResume=now();
+    }
+    persist();
+  },SAVE_MS);
+
+  // --- boot ---
+  load();
+  resize();
+  resume();
+
+  function loop(){
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // keep readout alive while depositing
+  setInterval(function(){
+    if(!account.classList.contains("on") && !inspectTimer && state.current){
+      setReadout("depositing · "+state.layers.length+" sealed · "+fmtDur(currentThickness()));
+    }
+  },1000);
+})();
+</script>
+</body>
+</html>

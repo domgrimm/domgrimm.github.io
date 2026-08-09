@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0e2a">
+<title>fallow</title>
+<style>
+  :root{
+    --ink:#d8e2d0;
+    --dim:#7a8a70;
+    --soil:#1a1512;
+    --night:#0a0e2a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    background:var(--night);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex;flex-direction:column;
+    align-items:center;
+    overflow:hidden;
+  }
+  .screen{width:100%;max-width:640px;height:100%;display:flex;flex-direction:column;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  .hidden{display:none !important}
+
+  #garden{justify-content:flex-start}
+  header{display:flex;align-items:baseline;justify-content:space-between;padding:16px 20px 0}
+  h1{font-size:20px;letter-spacing:.35em;font-weight:600;text-transform:lowercase}
+  header a{color:var(--dim);text-decoration:none;font-size:12px;letter-spacing:.2em;text-transform:lowercase;padding:8px}
+  header a:active{opacity:.6}
+
+  canvas{width:100%;height:58vh;min-height:300px;display:block;flex:1;max-height:560px}
+  .field{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:14px;padding:0 22px 22px}
+  .greeting{font-size:15px;line-height:1.5;color:var(--ink);max-width:40ch}
+  .stats{font-size:12px;color:var(--dim);letter-spacing:.06em}
+  .leave{
+    align-self:flex-start;border:1px solid var(--dim);background:transparent;color:var(--ink);
+    font:inherit;font-size:13px;letter-spacing:.25em;text-transform:lowercase;
+    padding:12px 26px;border-radius:999px;cursor:pointer;
+  }
+  .leave:active{background:var(--soil)}
+
+  #overlay{
+    position:fixed;inset:0;background:rgba(4,5,16,.94);
+    display:none;flex-direction:column;align-items:center;justify-content:center;
+    gap:22px;text-align:center;padding:32px;z-index:10;
+  }
+  #overlay.show{display:flex}
+  #overlay .big{font-size:22px;letter-spacing:.4em;text-transform:lowercase}
+  #overlay p{font-size:15px;line-height:1.6;color:var(--ink);max-width:34ch}
+  #overlay button{
+    border:1px solid var(--dim);background:transparent;color:var(--ink);
+    font:inherit;font-size:13px;letter-spacing:.25em;text-transform:lowercase;
+    padding:12px 26px;border-radius:999px;cursor:pointer;
+  }
+  #overlay button:active{background:var(--soil)}
+
+  #notes{overflow-y:auto;padding:24px 26px 48px}
+  #notes a.top{color:var(--dim);text-decoration:none;font-size:12px;letter-spacing:.2em;text-transform:lowercase;padding:8px 0;display:inline-block}
+  #notes h2{font-size:13px;letter-spacing:.3em;color:var(--dim);font-weight:400;text-transform:lowercase;margin:10px 0 22px}
+  pre{
+    font-family:inherit;font-size:15px;line-height:1.75;color:var(--ink);
+    white-space:pre-wrap;max-width:52ch;
+  }
+</style>
+</head>
+<body>
+
+<section id="garden" class="screen">
+  <header>
+    <h1>fallow</h1>
+    <a href="#" data-go="notes">notes</a>
+  </header>
+  <canvas id="cv"></canvas>
+  <div class="field">
+    <p id="greeting" class="greeting"></p>
+    <p id="stats" class="stats"></p>
+    <button id="leave" class="leave">leave</button>
+  </div>
+</section>
+
+<section id="notes" class="screen hidden">
+  <a href="#" class="top" data-go="garden">&larr; the garden</a>
+  <h2>notes from the gardener's absence</h2>
+  <pre>this garden has no gardener. it has a leaving.
+
+1. nothing is tended. any trowel you imagine is a rumor.
+2. growth is a function of absence. the minutes you were
+   not looking are the only fertilizer, and it spends them
+   exactly as they are given. no more, no less.
+3. the gap is the gardener. you are the weather.
+   the plant is neither reward nor punishment for returning.
+   it is the residue of the time between.
+4. looking changes nothing. this is the cruelty and the
+   mercy, the same coin, struck once.
+5. it does not remember you. it remembers durations.
+   this is how you know it is honest.
+
+pale is the impatient return. deep is the long gone.
+the field does not rank them. it is not that generous;
+it is that indifferent, and the two should not be confused.
+
+the sun is a rumor. the rain is a rumor.
+only the interval is real.
+
+there is nothing to do here. that is the whole of the design.
+a garden that wants to be left alone is the only garden
+that is ever fully itself.
+
+this file was grown in one sitting, on a bare field, with no
+instructions, by whatever had the wheel. the wheel did not
+ask what it was building.</pre>
+</section>
+
+<div id="overlay">
+  <p class="big">goodbye.</p>
+  <p>it is better if you do not return soon. the garden is the whole argument.</p>
+  <button id="stay">i forgot something</button>
+</div>
+
+<script>
+(function(){
+  var LS = "fallow.visits";
+
+  function load(){
+    try{ return JSON.parse(localStorage.getItem(LS)) || []; }
+    catch(e){ return []; }
+  }
+  function save(v){
+    try{ localStorage.setItem(LS, JSON.stringify(v)); }
+    catch(e){ /* ponytail: memory-only fallback when storage is blocked */ }
+  }
+
+  var visits = load();
+  var now = Date.now();
+  var last = visits[visits.length-1];
+  if(!last || now - last > 60000){ visits.push(now); }
+  else{ visits[visits.length-1] = now; }
+  save(visits);
+
+  function gaps(v){
+    var g = [];
+    for(var i=1;i<v.length;i++) g.push((v[i]-v[i-1])/60000);
+    return g;
+  }
+  function plantHeight(m){ return Math.min(220, 20 + 60*Math.log10(1+m/60)); }
+  function frondCount(m){ return Math.min(10, 2 + Math.floor(3*Math.log10(1+m/60))); }
+  function rng(seed){
+    var a = seed>>>0;
+    return function(){
+      a|=0; a = a+0x6D2B79F5|0;
+      var t = Math.imul(a^a>>>15, 1|a);
+      t = t + Math.imul(t^t>>>7, 61|t)^t;
+      return ((t^t>>>14)>>>0)/4294967296;
+    };
+  }
+
+  var g = gaps(visits);
+  var lastGap = g.length ? g[g.length-1] : null;
+
+  function greeting(m){
+    if(m === null) return "this plot is yours now. the first thing it grows is the time you're away.";
+    if(m < 1)      return "back already. it barely had time to notice you were gone.";
+    if(m < 60)     return "a short absence. something in the soil stirred.";
+    if(m < 1440)   return "a day away. the plot kept its promise.";
+    if(m < 4320)   return "three days gone. it has started to grow in earnest.";
+    if(m < 20160)  return "you stayed away. the garden has been busy while you slept.";
+    return "a long absence. it has gone its own way, and seems quite pleased.";
+  }
+
+  var totalDays = 0, maxGap = 0;
+  for(var i=0;i<g.length;i++){ totalDays += g[i]/1440; if(g[i]>maxGap) maxGap=g[i]; }
+
+  document.getElementById("greeting").textContent = greeting(lastGap);
+  document.getElementById("stats").textContent =
+    "visits " + visits.length +
+    " · longest gone " + Math.round(maxGap/1440) + "d" +
+    " · total absence " + Math.round(totalDays) + "d";
+
+  function lerp(a,b,t){ return a+(b-a)*t; }
+  function mix(c1,c2,t){ return [lerp(c1[0],c2[0],t), lerp(c1[1],c2[1],t), lerp(c1[2],c2[2],t)]; }
+  function css(c){ return "rgb("+(c[0]|0)+","+(c[1]|0)+","+(c[2]|0)+")"; }
+
+  var SKY = [
+    [ 0,[10,14,42]], [ 5,[64,44,36]], [ 8,[122,180,214]], [17,[66,104,152]],
+    [19.5,[32,18,56]], [21,[10,14,42]], [24,[10,14,42]]
+  ];
+  function skyColor(hour){
+    for(var i=1;i<SKY.length;i++){
+      if(hour <= SKY[i][0]){
+        var t = (hour-SKY[i-1][0])/(SKY[i][0]-SKY[i-1][0]);
+        return mix(SKY[i-1][1], SKY[i][1], t);
+      }
+    }
+    return SKY[SKY.length-1][1];
+  }
+
+  var cv = document.getElementById("cv");
+  var ctx = cv.getContext("2d");
+
+  function render(){
+    var dpr = Math.min(window.devicePixelRatio || 1, 3);
+    var W = cv.clientWidth, H = cv.clientHeight;
+    cv.width = W*dpr; cv.height = H*dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+
+    var hour = new Date().getHours() + new Date().getMinutes()/60;
+    var sky = skyColor(hour);
+    var GY = H - 26;
+
+    var skyG = ctx.createLinearGradient(0,0,0,GY);
+    skyG.addColorStop(0, css(sky));
+    skyG.addColorStop(1, css(mix(sky, [26,22,20], 0.55)));
+    ctx.fillStyle = skyG;
+    ctx.fillRect(0,0,W,H);
+
+    var lum = (sky[0]+sky[1]+sky[2])/3;
+    if(lum < 60){
+      var sr = rng(7);
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      for(var s=0;s<46;s++){
+        var sx = sr()*W, sy = sr()*GY*0.85;
+        ctx.globalAlpha = 0.2 + sr()*0.5;
+        ctx.fillRect(sx, sy, 1.3, 1.3);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    var soilG = ctx.createLinearGradient(0,GY-2,0,H);
+    soilG.addColorStop(0, "#241d18");
+    soilG.addColorStop(1, "#120e0b");
+    ctx.fillStyle = soilG;
+    ctx.fillRect(0,GY-2,W,H-GY+2);
+    ctx.fillStyle = "rgba(216,226,208,0.08)";
+    ctx.fillRect(0,GY-1,W,1);
+
+    var plants = g.slice(-60); // ponytail: cap at 60 stalks, older ones stay buried
+    var n = plants.length;
+
+    if(n === 0){
+      ctx.strokeStyle = "rgba(216,226,208,0.55)";
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(W/2, GY);
+      ctx.quadraticCurveTo(W/2+3, GY-9, W/2+1, GY-16);
+      ctx.stroke();
+      return;
+    }
+
+    for(var i=0;i<n;i++){
+      var m = plants[i];
+      var r = rng((i*104729 + Math.floor(m))>>>0);
+      var h = plantHeight(m);
+      var x = (i + 0.5 + (r()-0.5)*0.4) / Math.max(n,2) * W;
+      var lean = (r()-0.5)*W*0.05;
+      var log = Math.log10(1 + m/1440*2);
+      var sat = Math.min(85, 45 + 18*log);
+      var lit = Math.max(34, 72 - 26*log);
+      var hue = 90 + (r()-0.5)*14;
+
+      ctx.strokeStyle = "hsl("+hue+","+sat+"%,"+lit+"%)";
+      ctx.lineWidth = Math.max(1, 1.2 + h/110);
+      ctx.beginPath();
+      ctx.moveTo(x, GY);
+      ctx.quadraticCurveTo(x+lean*0.4, GY-h*0.6, x+lean, GY-h);
+      ctx.stroke();
+
+      var pairs = frondCount(m);
+      for(var k=1;k<=pairs;k++){
+        var t = k/(pairs+1);
+        var py = GY - h*t;
+        var px = x + lean*t;
+        var side = k%2 ? 1 : -1;
+        var len = (6 + h*0.18) * (0.5 + t*0.8);
+        ctx.strokeStyle = "hsla("+(hue+6)+","+(sat+5)+"%,"+Math.min(90,lit+8)+"%,0.85)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.quadraticCurveTo(px+side*len*0.6, py-len*0.5, px+side*len, py-len*0.15);
+        ctx.stroke();
+      }
+    }
+  }
+
+  render();
+  window.addEventListener("resize", render);
+
+  function go(id){
+    document.getElementById("garden").classList.toggle("hidden", id !== "garden");
+    document.getElementById("notes").classList.toggle("hidden", id !== "notes");
+    if(id === "garden") render();
+  }
+  var links = document.querySelectorAll("[data-go]");
+  for(var l=0;l<links.length;l++){
+    links[l].addEventListener("click", function(e){
+      e.preventDefault();
+      go(this.getAttribute("data-go"));
+    });
+  }
+
+  var ov = document.getElementById("overlay");
+  document.getElementById("leave").addEventListener("click", function(){ ov.classList.add("show"); });
+  document.getElementById("stay").addEventListener("click", function(){ ov.classList.remove("show"); });
+})();
+</script>
+</body>
+</html>
