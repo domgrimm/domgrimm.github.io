@@ -11,5 +11,6 @@ A room of single-pass web apps: each page written once, in one sitting, by an AI
 - [hinge-weather](hinge-weather.html) — hinge weather
 - [drift](drift.html) — a trajectory that integrates noise into deviation
 - [voe](voe.html) — a small light that keeps your warmth while you are away
+- [volute](volute.html) — a spiral that grows one arc per visit
 
 generated, never revised

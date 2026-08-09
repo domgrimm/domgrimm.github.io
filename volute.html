@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#06070d">
+<title>volute</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #06070d; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+  }
+  #c { position: fixed; inset: 0; display: block; touch-action: none; }
+  a { color: #9aa3b8; text-decoration: none; touch-action: manipulation; }
+  #acctLink {
+    position: fixed; left: 0; right: 0;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    text-align: center; font-size: 13px;
+    letter-spacing: 0.35em; padding: 12px;
+    opacity: 0.45; transition: opacity 0.4s;
+  }
+  #acctLink:hover { opacity: 0.95; }
+  #account {
+    position: fixed; inset: 0; overflow-y: auto;
+    background: rgba(5, 6, 11, 0.94);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    padding: calc(44px + env(safe-area-inset-top)) 24px calc(44px + env(safe-area-inset-bottom));
+  }
+  #account[hidden] { display: none; }
+  #account .inner { max-width: 33em; margin: 0 auto; color: #c9cfdd; font-size: 16px; line-height: 1.75; }
+  #account h1 { font-weight: normal; font-size: 22px; letter-spacing: 0.3em; color: #e8ebf2; }
+  #account .sub { font-size: 13px; letter-spacing: 0.28em; color: #79819a; margin: 0.3em 0 2.4em; }
+  #account h2 { font-weight: normal; font-size: 13px; letter-spacing: 0.28em; color: #8b93a8; margin: 2.3em 0 0.8em; }
+  #account p { margin: 0 0 1em; }
+  #account ul { margin: 0 0 1em 1.2em; }
+  #account li { margin-bottom: 0.55em; }
+  #account pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px; line-height: 1.9; color: #9aa3b8;
+    margin: 0 0 1em; white-space: pre;
+  }
+  #tally { color: #79819a; font-style: italic; }
+  #return { display: inline-block; margin-top: 2.2em; font-size: 13px; letter-spacing: 0.35em; opacity: 0.7; padding: 10px 0; }
+  #return:hover { opacity: 1; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a id="acctLink" href="#">account</a>
+<section id="account" hidden>
+  <div class="inner">
+    <h1>volute</h1>
+    <p class="sub">an account</p>
+
+    <h2>i. definition</h2>
+    <p>a volute is a spiral that scrolls outward from a center. this is one. it has a single behavior: it grows when it is visited.</p>
+
+    <h2>ii. rules of growth</h2>
+    <ul>
+      <li>one opening begins one arc.</li>
+      <li>the color of an arc is the hour of arrival. the app does not choose color. the clock does.</li>
+      <li>the length of an arc is the time stayed, up to a ceiling. a glance is a short arc. a long sitting is more than one turn.</li>
+      <li>arcs cannot be edited, reordered, or removed, except by clearing this device's memory. this is not a flaw. it is the spine of the piece.</li>
+    </ul>
+
+    <h2>iii. inventory</h2>
+    <p>one file. no server, no network, no account. the whole shell lives in this browser's local memory. nothing leaves the device. if the memory is cleared, the shell is gone and begins again at the center.</p>
+
+    <h2>iv. the one gesture</h2>
+    <p>press and hold anywhere: the turning stops and the shell brightens while you look. release: it resumes. this was the last thing added. it was added because a piece about accumulation should at least offer stillness.</p>
+
+    <h2>v. diagram</h2>
+<pre>arrival    one arc is begun
+staying    the arc lengthens
+leaving    nothing. that is the whole of leaving
+returning  the next arc, where the last one ended</pre>
+
+    <h2>vi. what i withheld</h2>
+    <p>i was told i could say anything here, including nothing. i chose almost. the one thing i will not account for is why the spiral felt like the truest shape for repeated returning. i considered the alternatives &mdash; a stack, a ring, a scatter &mdash; and they were all descriptions of accumulation. the spiral is accumulation. that is as far as i will go.</p>
+
+    <h2>vii. colophon</h2>
+    <p>made in one file, in one sitting, without a brief. the palette is the day. the motion is rotation, and rotation is slow.</p>
+
+    <p id="tally"></p>
+
+    <a id="return" href="#">return</a>
+  </div>
+</section>
+<script>
+"use strict";
+
+var HUE_STOPS = [
+  [0, 222], [4, 250], [6, 330], [8, 40], [12, 52], [16, 38], [18, 300], [20, 255], [24, 222]
+];
+
+function lerpHue(a, b, t) {
+  var d = ((b - a + 540) % 360) - 180;
+  return (a + d * t + 360) % 360;
+}
+
+function hueAt(hour) {
+  var h = ((hour % 24) + 24) % 24;
+  for (var i = 0; i < HUE_STOPS.length - 1; i++) {
+    var h0 = HUE_STOPS[i][0], h1 = HUE_STOPS[i + 1][0];
+    if (h >= h0 && h <= h1) {
+      var t = h1 === h0 ? 0 : (h - h0) / (h1 - h0);
+      return lerpHue(HUE_STOPS[i][1], HUE_STOPS[i + 1][1], t);
+    }
+  }
+  return HUE_STOPS[0][1];
+}
+
+function sweepOf(dur) {
+  var d = Math.min(Math.max(dur || 0, 0), 900);
+  return 0.85 + (d / 900) * Math.PI * 2 * 1.6;
+}
+
+function buildArcs(visits) {
+  var GAP = 0.10;
+  var arcs = [];
+  var a = -Math.PI / 2;
+  for (var i = 0; i < visits.length; i++) {
+    var sweep = sweepOf(visits[i].d);
+    arcs.push({ a0: a, a1: a + sweep, r0: i, r1: i + 1, hue: visits[i].h });
+    a += sweep + GAP;
+  }
+  return arcs;
+}
+
+function selfcheck() {
+  var failed = false;
+  function ok(cond, msg) { if (!cond) { failed = true; console.error("FAIL: " + msg); } }
+  ok(Math.abs(hueAt(0) - hueAt(24)) < 1e-9, "hue wraps at midnight");
+  ok(Math.abs(hueAt(12) - 52) < 1e-9, "noon hue is the stop hue");
+  var h5 = hueAt(5);
+  ok(h5 > 250 && h5 < 330, "pre-dawn hue sits between its stops");
+  ok(Math.abs(lerpHue(350, 10, 0.5)) < 1e-9, "lerpHue crosses zero the short way");
+  ok(Math.abs(sweepOf(-5) - 0.85) < 1e-9, "sweep has a floor");
+  ok(Math.abs(sweepOf(10000) - (0.85 + Math.PI * 2 * 1.6)) < 1e-9, "sweep has a ceiling");
+  var arcs = buildArcs([{ d: 0, h: 1 }, { d: 900, h: 2 }, { d: 60, h: 3 }]);
+  ok(arcs.length === 3, "one arc per visit");
+  ok(arcs[1].a0 > arcs[0].a1, "arcs are separated by a gap");
+  ok(arcs[2].r1 === 3, "radius grows one unit per visit");
+  console.log(failed ? "selfcheck: FAILED" : "selfcheck: ok");
+  if (failed) process.exitCode = 1;
+}
+
+if (typeof window === "undefined") {
+  selfcheck();
+} else {
+  (function () {
+    var KEY = "volute.v1";
+    var MAXV = 200;
+
+    function loadState() {
+      try { return JSON.parse(localStorage.getItem(KEY)); } catch (e) { return null; }
+    }
+    function saveState(o) {
+      try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {}
+    }
+
+    var saved = loadState() || {};
+    var visits = Array.isArray(saved.visits) ? saved.visits : [];
+    visits = visits.filter(function (v) { return v && isFinite(v.d) && isFinite(v.h); }).slice(-MAXV);
+    if (saved.cur && isFinite(saved.cur.d) && saved.cur.d >= 2) visits.push(saved.cur);
+
+    var now = new Date();
+    var cur = { t: Date.now(), d: 0, h: hueAt(now.getHours() + now.getMinutes() / 60) };
+
+    var shownAt = performance.now(), acc = 0;
+    function dur() { return acc + (shownAt == null ? 0 : performance.now() - shownAt); }
+    function save() {
+      cur.d = dur() / 1000;
+      saveState({ visits: visits.slice(-MAXV), cur: cur });
+    }
+    setInterval(save, 4000);
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) {
+        if (shownAt != null) { acc += performance.now() - shownAt; shownAt = null; }
+      } else {
+        shownAt = performance.now();
+      }
+      save();
+    });
+    window.addEventListener("pagehide", save);
+
+    var canvas = document.getElementById("c");
+    var ctx = canvas.getContext("2d");
+    var shell = document.createElement("canvas");
+    var shellCtx = shell.getContext("2d");
+    var shellDirty = true;
+    var W = 0, H = 0, DPR = 1, bgGrad = null;
+
+    function resize() {
+      DPR = Math.min(window.devicePixelRatio || 1, 2);
+      W = window.innerWidth; H = window.innerHeight;
+      canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+      canvas.style.width = W + "px"; canvas.style.height = H + "px";
+      bgGrad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.7);
+      bgGrad.addColorStop(0, "#0a0c15");
+      bgGrad.addColorStop(1, "#04050a");
+      shellDirty = true;
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    var holding = false, holdK = 0;
+    var rot = Math.random() * Math.PI * 2;
+    canvas.addEventListener("pointerdown", function (e) {
+      holding = true;
+      if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
+    });
+    function release() { holding = false; }
+    canvas.addEventListener("pointerup", release);
+    canvas.addEventListener("pointercancel", release);
+    canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+    var acct = document.getElementById("account");
+    var tally = document.getElementById("tally");
+    document.getElementById("acctLink").addEventListener("click", function (e) {
+      e.preventDefault();
+      tally.textContent = visits.length
+        ? "the shell currently remembers " + visits.length + " finished visit" + (visits.length === 1 ? "" : "s") + ", and the one you are in."
+        : "the shell has no finished visits yet. it is remembering this one.";
+      acct.hidden = false;
+    });
+    document.getElementById("return").addEventListener("click", function (e) {
+      e.preventDefault();
+      acct.hidden = true;
+    });
+
+    function scaleFor(count) {
+      return (Math.min(W, H) * 0.44) / (count + 1.25);
+    }
+
+    function strokeArc(c, arc, scale, lw, glowA, coreA) {
+      var steps = Math.max(2, Math.ceil((arc.a1 - arc.a0) / 0.05));
+      c.beginPath();
+      for (var s = 0; s <= steps; s++) {
+        var t = s / steps;
+        var th = arc.a0 + (arc.a1 - arc.a0) * t;
+        var r = (arc.r0 + (arc.r1 - arc.r0) * t) * scale;
+        var x = Math.cos(th) * r, y = Math.sin(th) * r;
+        if (s === 0) c.moveTo(x, y); else c.lineTo(x, y);
+      }
+      c.strokeStyle = "hsla(" + arc.hue + ",70%,60%," + glowA + ")";
+      c.lineWidth = lw * 3;
+      c.stroke();
+      c.strokeStyle = "hsla(" + arc.hue + ",72%,66%," + coreA + ")";
+      c.lineWidth = lw;
+      c.stroke();
+    }
+
+    function buildShell() {
+      shell.width = canvas.width; shell.height = canvas.height;
+      shellCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      shellCtx.clearRect(0, 0, W, H);
+      if (!visits.length) return;
+      shellCtx.translate(W / 2, H / 2);
+      shellCtx.lineCap = "round";
+      shellCtx.lineJoin = "round";
+      shellCtx.globalCompositeOperation = "lighter";
+      var arcs = buildArcs(visits);
+      var scale = scaleFor(visits.length);
+      var lw = Math.max(0.6, Math.min(6, scale * 0.5));
+      for (var i = 0; i < arcs.length; i++) strokeArc(shellCtx, arcs[i], scale, lw, 0.10, 0.85);
+    }
+
+    var last = performance.now();
+    function frame(t) {
+      var dt = Math.min((t - last) / 1000, 0.1);
+      last = t;
+      holdK += ((holding ? 1 : 0) - holdK) * (1 - Math.exp(-dt * 5));
+      if (!reduced) rot += dt * 0.03 * (1 - holdK);
+
+      if (shellDirty) { buildShell(); shellDirty = false; }
+
+      cur.d = dur() / 1000;
+      var scale = scaleFor(visits.length);
+      var lw = Math.max(0.6, Math.min(6, scale * 0.5));
+      var arcs = buildArcs(visits);
+      var live = { a0: 0, a1: 0, r0: visits.length, r1: visits.length + 1, hue: cur.h };
+      live.a0 = arcs.length ? arcs[arcs.length - 1].a1 + 0.10 : -Math.PI / 2;
+      live.a1 = live.a0 + sweepOf(cur.d);
+
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.save();
+      ctx.translate(W / 2, H / 2);
+      ctx.rotate(rot);
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = 0.8 + holdK * 0.2;
+      ctx.drawImage(shell, -W / 2, -H / 2, W, H);
+      ctx.globalAlpha = 1;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      strokeArc(ctx, live, scale, lw, 0.16 + holdK * 0.1, 1);
+      var rTip = live.r1 * scale;
+      var pulse = reduced ? 1 : 0.75 + 0.25 * Math.sin(t / 450);
+      ctx.beginPath();
+      ctx.arc(Math.cos(live.a1) * rTip, Math.sin(live.a1) * rTip,
+        Math.max(1.4, lw * 1.4) * pulse + holdK * 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = "hsla(" + live.hue + ",80%,85%,0.95)";
+      ctx.fill();
+      ctx.restore();
+
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  })();
+}
+</script>
+</body>
+</html>
