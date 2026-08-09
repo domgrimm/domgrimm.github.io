@@ -40,6 +40,9 @@ main { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; }
 .value small { font-size: 0.3em; color: var(--muted); vertical-align: super; }
 .row { display: flex; gap: 1rem; flex-wrap: wrap; }
 .row > .panel { flex: 1; min-width: 140px; }
+.row.tight { flex-wrap: nowrap; }
+.row.tight > .panel { min-width: 0; }
+.row.tight .value { font-size: clamp(1.25rem, 6vw, 3rem); }
 .btn { background: transparent; border: 1px solid var(--border); color: var(--fg); padding: 0.75rem 1.5rem; border-radius: 6px; font-family: inherit; font-size: 0.875rem; cursor: pointer; transition: all 0.15s; }
 .btn:hover { border-color: var(--accent); color: var(--accent); }
 .btn:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
@@ -72,15 +75,11 @@ main { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; }
 <nav><a href="#" id="to-accounting" aria-label="View accounting">accounting</a></nav>
 </header>
 <main>
+<div class="row tight">
 <div class="panel">
 <h2>position</h2>
 <div class="value" id="position">0<small>°</small></div>
 </div>
-<div class="panel canvas-wrap">
-<h2>trajectory</h2>
-<canvas id="trajectory" aria-label="Drift trajectory over time"></canvas>
-</div>
-<div class="row">
 <div class="panel">
 <h2>velocity</h2>
 <div class="value" id="velocity">0.00<small>°/s</small></div>
@@ -89,6 +88,10 @@ main { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; }
 <h2>drift</h2>
 <div class="value" id="total-drift">0<small>°</small></div>
 </div>
+</div>
+<div class="panel canvas-wrap">
+<h2>trajectory</h2>
+<canvas id="trajectory" aria-label="Drift trajectory over time"></canvas>
 </div>
 <div class="panel">
 <h2>controls</h2>
