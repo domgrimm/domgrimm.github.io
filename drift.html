@@ -351,7 +351,7 @@ main { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; }
     const totalCycles = state.sessions;
     const totalActive = state.activeTime;
     const avgPeak = h.length ? (h.reduce((a,b) => a + b.peak, 0) / h.length).toFixed(2) : 0;
-    const totalDriftAll = h.reduce((a,b) => a + b.drift, 0) + state.totalDrift;
+    const totalDriftAll = state.totalDrift;
 
     const fragments = [
       `DRIFT ACCOUNTING // ${new Date().toISOString().split('T')[0]}`,

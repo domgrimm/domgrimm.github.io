@@ -1,16 +1,12 @@
-# random
+# domgrimm.github.io
 
-Single-page apps. They live in the GitHub repo [domgrimm/domgrimm.github.io](https://github.com/domgrimm/domgrimm.github.io) and are hosted on GitHub Pages at <https://domgrimm.github.io>.
+Single-page apps, served by GitHub Pages. Each file is self-contained.
 
-| file | app |
-|------|-----|
-| `fallow.html` | fallow — a garden that grows in your absence |
-| `sediment.html` | sediment — a column that records presence |
-| `loam.html` | loam — a small field for words that get heavy |
-| `nullgarden.html` | nullgarden — a garden of things that are not |
-| `water.html` | water |
-| `negative-field.html` | negative field |
-| `hinge-weather.html` | hinge weather |
-| `drift.html` | drift — a trajectory that integrates noise into deviation |
-
-To publish changes: edit a file here, copy it into a checkout of `domgrimm/domgrimm.github.io`, and push.
+- [fallow](fallow.html) — a garden that grows in your absence
+- [sediment](sediment.html) — a column that records presence
+- [loam](loam.html) — a small field for words that get heavy
+- [nullgarden](nullgarden.html) — a garden of things that are not
+- [water](water.html) — water
+- [negative-field](negative-field.html) — negative field
+- [hinge-weather](hinge-weather.html) — hinge weather
+- [drift](drift.html) — a trajectory that integrates noise into deviation
