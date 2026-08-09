@@ -56,16 +56,37 @@ canvas { display: block; }
   var ECHO_A = 0.03;
 
   var audio = null;
+  var audioReady = false;
   var NOTES = [0, 2, 4, 7, 9];
 
-  function mkAudio() {
-    if (audio) return;
+  (function() {
     try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) {}
+  })();
+
+  function unlockAudio() {
+    if (!audio) return;
+    if (audio.state === "suspended") {
+      audio.resume();
+    }
+    if (!audioReady) {
+      audioReady = true;
+      try {
+        var buf = audio.createBuffer(1, 1, 22050);
+        var src = audio.createBufferSource();
+        src.buffer = buf;
+        src.connect(audio.destination);
+        src.start(0);
+      } catch (_) {}
+    }
   }
 
   function tone(freq, vol) {
     if (!audio) return;
-    var play = function() {
+    try {
+      if (audio.state === "suspended") {
+        audio.resume().then(function() { tone(freq, vol); });
+        return;
+      }
       var t = audio.currentTime;
       var o = audio.createOscillator();
       var g = audio.createGain();
@@ -77,12 +98,7 @@ canvas { display: block; }
       g.connect(audio.destination);
       o.start(t);
       o.stop(t + 1.1);
-    };
-    if (audio.state === "suspended") {
-      audio.resume().then(play);
-    } else {
-      play();
-    }
+    } catch (_) {}
   }
 
   function xFreq(x) {
@@ -272,12 +288,16 @@ canvas { display: block; }
 
   canvas.addEventListener("pointerdown", function(e) {
     e.preventDefault();
-    mkAudio();
+    unlockAudio();
     var rect = canvas.getBoundingClientRect();
     var nx = (e.clientX - rect.left) / rect.width;
     var ny = (e.clientY - rect.top) / rect.height;
     addRipple(nx, ny);
   });
+
+  canvas.addEventListener("touchstart", function(e) {
+    unlockAudio();
+  }, { passive: true });
 
   canvas.addEventListener("contextmenu", function(e) { e.preventDefault(); });
 
