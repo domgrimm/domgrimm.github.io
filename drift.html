@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drift</title>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --fg: #e8e8ec;
+  --muted: #4a4a5a;
+  --accent: #00ffc8;
+  --accent-dim: #00ffc840;
+  --card: #12121a;
+  --border: #2a2a3a;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+@font-face { font-family: 'mono'; src: local('SF Mono'), local('Monospace'); }
+html { font-family: 'mono', monospace; font-size: 16px; line-height: 1.6; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+.screen { display: none; flex-direction: column; min-height: 100vh; padding: clamp(1rem, 4vw, 2rem); gap: 1.5rem; }
+.screen.active { display: flex; }
+header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
+h1 { font-size: clamp(1.5rem, 5vw, 2.5rem); font-weight: 400; letter-spacing: -0.02em; }
+h1 span { color: var(--accent); }
+nav a { color: var(--muted); text-decoration: none; font-size: 0.875rem; transition: color 0.2s; }
+nav a:hover, nav a:focus { color: var(--accent); outline: none; }
+nav a:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+main { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; }
+.panel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; }
+.panel h2 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 1rem; font-weight: 400; }
+.value { font-size: clamp(2rem, 8vw, 4rem); font-weight: 300; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.value small { font-size: 0.3em; color: var(--muted); vertical-align: super; }
+.row { display: flex; gap: 1rem; flex-wrap: wrap; }
+.row > .panel { flex: 1; min-width: 140px; }
+.btn { background: transparent; border: 1px solid var(--border); color: var(--fg); padding: 0.75rem 1.5rem; border-radius: 6px; font-family: inherit; font-size: 0.875rem; cursor: pointer; transition: all 0.15s; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.btn.primary { border-color: var(--accent); color: var(--accent); }
+.btn.primary:hover { background: var(--accent-dim); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.log { font-size: 0.75rem; line-height: 1.8; color: var(--muted); max-height: 200px; overflow-y: auto; font-family: inherit; white-space: pre-wrap; }
+.log-entry { opacity: 0.7; }
+.log-entry.new { opacity: 1; color: var(--accent); animation: fade 3s forwards; }
+@keyframes fade { to { opacity: 0.5; color: var(--muted); } }
+.accounting { flex: 1; overflow-y: auto; line-height: 1.7; font-size: clamp(0.875rem, 2.5vw, 1rem); }
+.accounting pre { white-space: pre-wrap; word-wrap: break-word; }
+.accounting .fragment { margin: 2rem 0; padding-left: 1rem; border-left: 2px solid var(--accent); opacity: 0.8; }
+.accounting .fragment:nth-child(odd) { border-left-color: var(--muted); opacity: 0.6; }
+.accounting .glyph { font-size: 2rem; line-height: 1; display: inline-block; margin: 0 0.5rem; opacity: 0.3; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; }
+.stat { text-align: center; }
+.canvas-wrap { position: relative; }
+#trajectory { width: 100%; height: 200px; display: block; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; }
+.stat .num { font-size: 2rem; font-weight: 300; color: var(--accent); }
+.stat .label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-top: 0.25rem; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+::selection { background: var(--accent-dim); color: var(--bg); }
+</style>
+</head>
+<body>
+<div id="main-screen" class="screen active" role="main">
+<header>
+<h1>Drift<span>.</span></h1>
+<nav><a href="#" id="to-accounting" aria-label="View accounting">accounting</a></nav>
+</header>
+<main>
+<div class="panel">
+<h2>position</h2>
+<div class="value" id="position">0<small>°</small></div>
+</div>
+<div class="panel canvas-wrap">
+<h2>trajectory</h2>
+<canvas id="trajectory" aria-label="Drift trajectory over time"></canvas>
+</div>
+<div class="row">
+<div class="panel">
+<h2>velocity</h2>
+<div class="value" id="velocity">0.00<small>°/s</small></div>
+</div>
+<div class="panel">
+<h2>drift</h2>
+<div class="value" id="total-drift">0<small>°</small></div>
+</div>
+</div>
+<div class="panel">
+<h2>controls</h2>
+<div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
+<button class="btn primary" id="btn-start" aria-label="Begin drift">begin</button>
+<button class="btn" id="btn-stop" disabled aria-label="End drift">end</button>
+<button class="btn" id="btn-reset" aria-label="Reset to zero">reset</button>
+</div>
+</div>
+<div class="panel">
+<h2>log</h2>
+<div class="log" id="log" aria-live="polite"></div>
+</div>
+<div class="panel">
+<h2>session</h2>
+<div class="stats-grid">
+<div class="stat"><div class="num" id="stat-sessions">0</div><div class="label">cycles</div></div>
+<div class="stat"><div class="num" id="stat-max">0</div><div class="label">peak °</div></div>
+<div class="stat"><div class="num" id="stat-time">0s</div><div class="label">active</div></div>
+</div>
+</div>
+</main>
+</div>
+
+<div id="accounting-screen" class="screen" role="main">
+<header>
+<h1>Drift<span>.</span></h1>
+<nav><a href="#" id="to-main" aria-label="Return to drift">drift</a></nav>
+</header>
+<main>
+<div class="accounting" id="accounting"></div>
+</main>
+</div>
+
+<script>
+(function() {
+  const STORAGE_KEY = 'drift-state';
+  let state = {
+    position: 0,
+    velocity: 0,
+    totalDrift: 0,
+    running: false,
+    lastTick: null,
+    sessions: 0,
+    maxPosition: 0,
+    activeTime: 0,
+    log: [],
+    history: [],
+    trajectory: []
+  };
+  let tickId = null;
+  let startTime = null;
+  let canvas = null;
+  let ctx = null;
+  let canvasWidth = 0;
+  let canvasHeight = 0;
+  let dpr = 1;
+
+  const els = {
+    position: document.getElementById('position'),
+    velocity: document.getElementById('velocity'),
+    totalDrift: document.getElementById('total-drift'),
+    btnStart: document.getElementById('btn-start'),
+    btnStop: document.getElementById('btn-stop'),
+    btnReset: document.getElementById('btn-reset'),
+    log: document.getElementById('log'),
+    statSessions: document.getElementById('stat-sessions'),
+    statMax: document.getElementById('stat-max'),
+    statTime: document.getElementById('stat-time'),
+    mainScreen: document.getElementById('main-screen'),
+    accountingScreen: document.getElementById('accounting-screen'),
+    accounting: document.getElementById('accounting'),
+    toAccounting: document.getElementById('to-accounting'),
+    toMain: document.getElementById('to-main'),
+    trajectory: document.getElementById('trajectory')
+  };
+
+  function save() {
+    const persist = {
+      position: state.position,
+      totalDrift: state.totalDrift,
+      sessions: state.sessions,
+      maxPosition: state.maxPosition,
+      activeTime: state.activeTime,
+      history: state.history.slice(-100)
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(persist));
+  }
+
+  function load() {
+    try {
+      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      state.position = data.position || 0;
+      state.totalDrift = data.totalDrift || 0;
+      state.sessions = data.sessions || 0;
+      state.maxPosition = data.maxPosition || 0;
+      state.activeTime = data.activeTime || 0;
+      state.history = data.history || [];
+      render();
+    } catch { /* ignore */ }
+  }
+
+  function logEntry(text, isNew = false) {
+    const entry = document.createElement('div');
+    entry.className = 'log-entry' + (isNew ? ' new' : '');
+    entry.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+    els.log.insertBefore(entry, els.log.firstChild);
+    while (els.log.children.length > 50) els.log.removeChild(els.log.lastChild);
+  }
+
+  function render() {
+    els.position.textContent = state.position.toFixed(2).replace(/\.00$/, '');
+    els.velocity.textContent = state.velocity.toFixed(2);
+    els.totalDrift.textContent = state.totalDrift.toFixed(2).replace(/\.00$/, '');
+    els.statSessions.textContent = state.sessions;
+    els.statMax.textContent = state.maxPosition.toFixed(2).replace(/\.00$/, '');
+    els.statTime.textContent = Math.floor(state.activeTime) + 's';
+  }
+
+  function resizeCanvas() {
+    const rect = els.trajectory.getBoundingClientRect();
+    dpr = window.devicePixelRatio || 1;
+    canvasWidth = rect.width * dpr;
+    canvasHeight = rect.height * dpr;
+    els.trajectory.width = canvasWidth;
+    els.trajectory.height = canvasHeight;
+    els.trajectory.style.width = rect.width + 'px';
+    els.trajectory.style.height = rect.height + 'px';
+    ctx = els.trajectory.getContext('2d');
+    ctx.scale(dpr, dpr);
+    drawTrajectory();
+  }
+
+  function drawTrajectory() {
+    if (!ctx) return;
+    const w = els.trajectory.clientWidth;
+    const h = els.trajectory.clientHeight;
+    ctx.clearRect(0, 0, w, h);
+
+    // Grid lines
+    ctx.strokeStyle = '#1a1a2a';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = (h / 4) * i;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+    const cx = w / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, 0);
+    ctx.lineTo(cx, h);
+    ctx.stroke();
+
+    // Trajectory
+    if (state.trajectory.length < 2) return;
+    const maxPts = Math.floor(w / 2);
+    const pts = state.trajectory.slice(-maxPts);
+    const maxAbs = Math.max(0.1, ...pts.map(p => Math.abs(p)));
+
+    ctx.strokeStyle = '#00ffc8';
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    pts.forEach((pos, i) => {
+      const x = w - (pts.length - i) * 2;
+      const y = h / 2 - (pos / maxAbs) * (h / 2 * 0.8);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Current position marker
+    const cur = pts[pts.length - 1];
+    const mx = w - 2;
+    const cy = h / 2 - (cur / maxAbs) * (h / 2 * 0.8);
+    ctx.fillStyle = '#00ffc8';
+    ctx.beginPath();
+    ctx.arc(mx, cy, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#0a0a0f';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  function tick(now) {
+    if (!state.running) return;
+    const dt = state.lastTick ? (now - state.lastTick) / 1000 : 0;
+    state.lastTick = now;
+
+    if (dt > 0) {
+      state.velocity += (Math.random() - 0.5) * 0.08 * dt * 60;
+      state.velocity *= 0.995;
+      state.position += state.velocity * dt;
+      state.totalDrift += Math.abs(state.velocity) * dt;
+      state.activeTime += dt;
+      state.maxPosition = Math.max(state.maxPosition, Math.abs(state.position));
+      state.trajectory.push(state.position);
+    }
+
+    render();
+    drawTrajectory();
+    tickId = requestAnimationFrame(tick);
+  }
+
+  function start() {
+    if (state.running) return;
+    state.running = true;
+    state.lastTick = performance.now();
+    startTime = Date.now();
+    state.sessions++;
+    logEntry('drift initiated', true);
+    els.btnStart.disabled = true;
+    els.btnStop.disabled = false;
+    tickId = requestAnimationFrame(tick);
+    save();
+  }
+
+  function stop() {
+    if (!state.running) return;
+    state.running = false;
+    cancelAnimationFrame(tickId);
+    state.history.push({
+      start: startTime,
+      end: Date.now(),
+      peak: state.maxPosition,
+      drift: state.totalDrift
+    });
+    logEntry('drift suspended', true);
+    els.btnStart.disabled = false;
+    els.btnStop.disabled = true;
+    save();
+  }
+
+  function reset() {
+    stop();
+    state.position = 0;
+    state.velocity = 0;
+    state.totalDrift = 0;
+    state.maxPosition = 0;
+    state.activeTime = 0;
+    state.trajectory = [];
+    state.log = [];
+    els.log.innerHTML = '';
+    logEntry('state cleared', true);
+    render();
+    save();
+  }
+
+  function switchScreen(to) {
+    els.mainScreen.classList.toggle('active', to === 'main');
+    els.accountingScreen.classList.toggle('active', to === 'accounting');
+    if (to === 'accounting') renderAccounting();
+  }
+
+  function renderAccounting() {
+    const h = state.history;
+    const totalCycles = state.sessions;
+    const totalActive = state.activeTime;
+    const avgPeak = h.length ? (h.reduce((a,b) => a + b.peak, 0) / h.length).toFixed(2) : 0;
+    const totalDriftAll = h.reduce((a,b) => a + b.drift, 0) + state.totalDrift;
+
+    const fragments = [
+      `DRIFT ACCOUNTING // ${new Date().toISOString().split('T')[0]}`,
+      ``,
+      `the system does not measure time. it measures deviation.`,
+      ``,
+      `cycles completed: ${totalCycles}`,
+      `cumulative active duration: ${Math.floor(totalActive)}s`,
+      `peak deviation (session): ${state.maxPosition.toFixed(2)}°`,
+      `peak deviation (average): ${avgPeak}°`,
+      `total accumulated drift: ${totalDriftAll.toFixed(2)}°`,
+      ``,
+      `────────────────────`,
+      ``,
+      `velocity is noise integrated.`,
+      `position is velocity integrated.`,
+      `drift is the absolute integral of velocity.`,
+      `none of these are returned to zero by the universe.`,
+      `only the reset button does that.`,
+      ``,
+      `────────────────────`,
+      ``,
+      `history (last ${Math.min(h.length, 10)} cycles):`,
+      ``,
+      ...h.slice(-10).reverse().map((c, i) => {
+        const dur = ((c.end - c.start) / 1000).toFixed(1);
+        return `  ${i+1}. ${dur}s  peak:${c.peak.toFixed(2)}°  drift:${c.drift.toFixed(2)}°`;
+      }),
+      ``,
+      `────────────────────`,
+      ``,
+      `the accounting is not for you.`,
+      `it is for the system to remember`,
+      `that it has been here before.`,
+      ``,
+      `▲ ▼ ▲ ▼ ▲ ▼ ▲ ▼`,
+      `∫ v dt = x`,
+      `∫ |v| dt = drift`,
+      `∮ = 0 only by fiat`,
+      ``,
+      `end of transmission.`
+    ];
+
+    els.accounting.innerHTML = fragments.map((line, i) => {
+      if (line.startsWith('────')) return `<div class="fragment">${line}</div>`;
+      if (line.match(/^[▲▼∫∮]/)) return `<div class="fragment"><span class="glyph">${line}</span></div>`;
+      if (!line) return '<br>';
+      return `<div>${line}</div>`;
+    }).join('');
+  }
+
+  els.btnStart.addEventListener('click', start);
+  els.btnStop.addEventListener('click', stop);
+  els.btnReset.addEventListener('click', reset);
+  els.toAccounting.addEventListener('click', e => { e.preventDefault(); switchScreen('accounting'); });
+  els.toMain.addEventListener('click', e => { e.preventDefault(); switchScreen('main'); });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === ' ' && document.activeElement === document.body) {
+      e.preventDefault();
+      state.running ? stop() : start();
+    }
+    if (e.key === 'Escape') {
+      switchScreen('main');
+    }
+  });
+
+  load();
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+  logEntry('system ready');
+})();
+</script>
+</body>
+</html>
