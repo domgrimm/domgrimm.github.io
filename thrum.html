@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>thrum</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #06060f;
+  font-family: 'Courier New', Courier, monospace;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+canvas { display: block; }
+#ui { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+#title {
+  position: absolute; top: 18px; left: 18px;
+  color: rgba(255,255,255,0.18); font-size: 12px; letter-spacing: 3px;
+}
+#toggle {
+  position: absolute; top: 18px; right: 18px;
+  pointer-events: auto;
+  background: none;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.3);
+  font-family: inherit; font-size: 14px;
+  width: 38px; height: 38px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 2px;
+  line-height: 1;
+}
+#toggle:hover, #toggle:active { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.55); }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div id="title">thrum</div>
+  <button id="toggle" aria-label="toggle view">+</button>
+</div>
+<script>
+(function() {
+  "use strict";
+
+  var BG = "#06060f";
+  var SPEED = 0.12;
+  var LIFETIME = 8000;
+  var DECAY = 400;
+  var CLEAR_A = 0.15;
+  var MAX_RIPPLES = 40;
+  var MAX_MEMORY = 320;
+  var ECHO_A = 0.03;
+
+  var audio = null;
+  var NOTES = [0, 2, 4, 7, 9];
+
+  function mkAudio() {
+    if (audio) return;
+    try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) {}
+  }
+
+  function tone(freq, vol) {
+    if (!audio) return;
+    if (audio.state === "suspended") audio.resume();
+    var t = audio.currentTime;
+    var o = audio.createOscillator();
+    var g = audio.createGain();
+    o.type = "sine";
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(vol * 0.22, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+    o.connect(g);
+    g.connect(audio.destination);
+    o.start(t);
+    o.stop(t + 1.1);
+  }
+
+  function xFreq(x) {
+    var n = Math.floor(Math.min(x, 0.999) * NOTES.length * 3);
+    var oct = Math.floor(n / NOTES.length);
+    var sem = NOTES[n % NOTES.length];
+    return 220 * Math.pow(2, (oct * 12 + sem) / 12);
+  }
+
+  var state = { ripples: [], memory: [], view: "field", lastTap: 0 };
+
+  function load() {
+    try {
+      var raw = localStorage.getItem("thrum");
+      if (!raw) return [];
+      var data = JSON.parse(raw);
+      var now = Date.now();
+      for (var i = 0; i < data.length; i++) {
+        if (!data[i].time) data[i].time = now - (data.length - i) * 3500;
+      }
+      return data;
+    } catch (_) { return []; }
+  }
+
+  function save() {
+    try { localStorage.setItem("thrum", JSON.stringify(state.memory.slice(-MAX_MEMORY))); } catch (_) {}
+  }
+
+  var canvas = document.getElementById("c");
+  var ctx = canvas.getContext("2d");
+  var titleEl = document.getElementById("title");
+  var toggleEl = document.getElementById("toggle");
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  function addRipple(nx, ny) {
+    var now = performance.now();
+    var hue = (nx * 360 + now * 0.015) % 360;
+    var freq = xFreq(nx);
+    var amp = 0.25 + ny * 0.55;
+    var r = { x: nx, y: ny, hue: hue, freq: freq, amp: amp, time: now };
+    state.ripples.push(r);
+    if (state.ripples.length > MAX_RIPPLES) state.ripples.shift();
+    tone(freq, amp);
+    var m = { x: nx, y: ny, hue: hue, freq: freq, time: Date.now() };
+    state.memory.push(m);
+    if (state.memory.length > MAX_MEMORY) state.memory.shift();
+    state.lastTap = m.time;
+    save();
+  }
+
+  function renderField(now) {
+    var w = canvas.width, h = canvas.height;
+
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "rgba(6,6,15," + CLEAR_A + ")";
+    ctx.fillRect(0, 0, w, h);
+
+    var echoes = state.memory.slice(-90);
+    for (var i = 0; i < echoes.length; i++) {
+      var m = echoes[i];
+      var mx = m.x * w, my = m.y * h;
+      var pulse = 0.5 + 0.5 * Math.sin(now * 0.00025 + m.x * 6.7 + m.y * 10.3);
+      var a = ECHO_A * (0.6 + 0.4 * pulse);
+      var grd = ctx.createRadialGradient(mx, my, 0, mx, my, 10);
+      grd.addColorStop(0, "hsla(" + m.hue + ",70%,55%," + a.toFixed(4) + ")");
+      grd.addColorStop(1, "transparent");
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(mx, my, 10, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.globalCompositeOperation = "lighter";
+
+    for (var r = 0; r < state.ripples.length; r++) {
+      var rip = state.ripples[r];
+      var age = now - rip.time;
+      if (age <= 0 || age > LIFETIME) continue;
+
+      var fade = 1 - age / LIFETIME;
+      var maxR = age * SPEED;
+      if (maxR > Math.max(w, h) * 2) continue;
+
+      var sDecay = Math.exp(-maxR / DECAY);
+      var amp = fade * rip.amp * sDecay;
+      if (amp < 0.002) continue;
+
+      var cx = rip.x * w, cy = rip.y * h;
+      ctx.beginPath();
+      ctx.strokeStyle = "hsla(" + rip.hue + ",80%,55%," + (amp * 0.55).toFixed(4) + ")";
+      ctx.lineWidth = 2.5;
+      ctx.arc(cx, cy, maxR, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.globalCompositeOperation = "source-over";
+
+    for (var j = state.ripples.length - 1; j >= 0; j--) {
+      if (now - state.ripples[j].time > LIFETIME) state.ripples.splice(j, 1);
+    }
+  }
+
+  function renderSignal(now) {
+    var w = canvas.width, h = canvas.height;
+
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = BG;
+    ctx.fillRect(0, 0, w, h);
+
+    var specH = Math.floor(h * 0.72);
+
+    ctx.strokeStyle = "rgba(255,255,255,0.04)";
+    ctx.lineWidth = 1;
+    var octFreqs = [110, 220, 440, 880, 1760];
+    for (var i = 0; i < octFreqs.length; i++) {
+      var ny = specH * (1 - Math.log2(octFreqs[i] / 110) / 5);
+      ctx.beginPath();
+      ctx.moveTo(0, ny);
+      ctx.lineTo(w, ny);
+      ctx.stroke();
+    }
+
+    var win = 50000;
+    var nowMs = Date.now();
+
+    for (var j = state.memory.length - 1; j >= 0; j--) {
+      var tap = state.memory[j];
+      if (!tap.time) continue;
+      var age = nowMs - tap.time;
+      if (age > win) continue;
+
+      var x = w * (1 - age / win);
+      var fn = Math.log2(tap.freq / 110) / 5;
+      var y = specH * (1 - fn);
+      var a = 0.35 * (1 - age / win);
+
+      ctx.beginPath();
+      ctx.fillStyle = "hsla(" + tap.hue + ",75%,60%," + a.toFixed(3) + ")";
+      ctx.arc(x, Math.max(2, Math.min(specH - 2, y)), 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.strokeStyle = "rgba(255,255,255,0.05)";
+    ctx.beginPath();
+    ctx.moveTo(0, specH);
+    ctx.lineTo(w, specH);
+    ctx.stroke();
+
+    var logY = specH + 14;
+    var recent = state.memory.slice(-6);
+
+    ctx.font = "10px monospace";
+    ctx.textBaseline = "top";
+
+    if (recent.length === 0) {
+      ctx.fillStyle = "rgba(255,255,255,0.07)";
+      ctx.fillText("\u00b7 \u00b7 \u00b7  awaiting resonance  \u00b7 \u00b7 \u00b7", 14, logY);
+    } else {
+      for (var k = 0; k < recent.length; k++) {
+        var t = recent[k];
+        var a2 = t.time ? ((nowMs - t.time) / 1000).toFixed(1) : "?";
+        var line = "\u03bd=" + t.freq.toFixed(0) + "  \u03c6=" + t.x.toFixed(2) + "  \u03bb=" + t.y.toFixed(2) + "  \u0394=+" + a2;
+        var alpha = 0.06 + k * 0.13;
+        ctx.fillStyle = "hsla(" + t.hue + ",60%,55%," + alpha.toFixed(3) + ")";
+        ctx.fillText(line, 14, logY + k * 15);
+      }
+    }
+
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.font = "9px monospace";
+    ctx.textAlign = "left";
+    ctx.fillText("\u03bd \u2191", 6, 10);
+    ctx.textAlign = "right";
+    ctx.fillText("\u2190 \u0394", w - 6, specH - 6);
+    ctx.textAlign = "left";
+  }
+
+  function loop(ts) {
+    if (state.view === "field") renderField(ts);
+    else renderSignal(ts);
+    requestAnimationFrame(loop);
+  }
+
+  canvas.addEventListener("pointerdown", function(e) {
+    e.preventDefault();
+    mkAudio();
+    var rect = canvas.getBoundingClientRect();
+    var nx = (e.clientX - rect.left) / rect.width;
+    var ny = (e.clientY - rect.top) / rect.height;
+    addRipple(nx, ny);
+  });
+
+  canvas.addEventListener("contextmenu", function(e) { e.preventDefault(); });
+
+  toggleEl.addEventListener("click", function() {
+    state.view = state.view === "field" ? "signal" : "field";
+    titleEl.textContent = state.view === "field" ? "thrum" : "signal";
+    toggleEl.textContent = state.view === "field" ? "+" : "\u2212";
+  });
+
+  window.addEventListener("resize", resize);
+  resize();
+
+  var initialClear = function() {
+    ctx.fillStyle = BG;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  };
+  initialClear();
+
+  state.memory = load();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

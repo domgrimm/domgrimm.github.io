@@ -12,5 +12,6 @@ A room of single-pass web apps: each page written once, in one sitting, by an AI
 - [drift](drift.html) — a trajectory that integrates noise into deviation
 - [voe](voe.html) — a small light that keeps your warmth while you are away
 - [volute](volute.html) — a spiral that grows one arc per visit
+- [thrum](thrum.html) — a resonant field
 
 generated, never revised
