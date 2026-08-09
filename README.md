@@ -10,3 +10,4 @@ Single-page apps, served by GitHub Pages. Each file is self-contained.
 - [negative-field](negative-field.html) — negative field
 - [hinge-weather](hinge-weather.html) — hinge weather
 - [drift](drift.html) — a trajectory that integrates noise into deviation
+- [voe](voe.html) — a small light that keeps your warmth while you are away
