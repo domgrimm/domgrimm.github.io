@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0906">
+<meta name="description" content="lapse — a room with a light that dims while you are away.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='24' fill='%23ffd9a8'/%3E%3C/svg%3E">
+<title>lapse</title>
+<style>
+:root{--ink:#cbb396;--dim:#7d6f5c;--gold:#ffd9a8;}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:#0b0906;color:var(--ink);
+  font-family:Georgia,"Times New Roman",serif;overflow:hidden;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  -webkit-text-size-adjust:100%;user-select:none}
+.screen{position:fixed;inset:0;transition:opacity .8s ease}
+.screen.hidden{opacity:0;pointer-events:none}
+
+#main{background:radial-gradient(120% 95% at 50% 40%,#12100c 0%,#0b0906 72%)}
+#wordwall{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  pointer-events:none;text-align:center;color:#ffd9a8;font-size:11px;
+  letter-spacing:.42em;line-height:2.1;white-space:pre}
+#dot{position:absolute;left:50%;top:41%;width:16px;height:16px;border-radius:50%;
+  transform:translate(-50%,-50%);background:radial-gradient(circle at 50% 34%,#fff6e0,#ffd9a8 46%,rgba(255,180,110,0) 74%);
+  box-shadow:0 0 38px 8px rgba(255,190,120,var(--b,.9)),
+             0 0 130px 34px rgba(255,180,110,calc(var(--b,.9)*.22))}
+#chart{position:absolute;left:9%;right:9%;bottom:76px;height:110px;display:block}
+#hint{position:absolute;left:8%;right:8%;bottom:150px;text-align:center;font-size:14px;
+  font-style:italic;color:var(--dim);letter-spacing:.04em;line-height:1.6;
+  opacity:1;transition:opacity 1.2s ease}
+#hint.hidden{opacity:0}
+.btn{position:absolute;bottom:max(16px,env(safe-area-inset-bottom));background:none;
+  border:1px solid rgba(203,179,150,.25);color:var(--dim);cursor:pointer;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:10px;letter-spacing:.2em;text-transform:uppercase;padding:9px 13px;
+  border-radius:999px;transition:color .3s,border-color .3s;z-index:3}
+.btn:hover{color:var(--ink);border-color:rgba(203,179,150,.55)}
+.btn.playing{color:var(--gold);border-color:rgba(255,217,168,.6)}
+#listenBtn{right:max(16px,env(safe-area-inset-right))}
+#notesBtn{left:max(16px,env(safe-area-inset-left))}
+#toast{position:fixed;left:50%;bottom:118px;transform:translate(-50%,8px);z-index:6;
+  font-style:italic;font-size:13px;color:var(--gold);text-align:center;
+  opacity:0;transition:opacity .5s ease,transform .5s ease;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+
+#notes{overflow-y:auto;overscroll-behavior:contain;background:radial-gradient(120% 80% at 50% 18%,#100d09 0%,#0b0906 75%);
+  user-select:text;touch-action:pan-y}
+#n-inner{max-width:36rem;margin:0 auto;padding:calc(64px + env(safe-area-inset-top)) 8vw calc(80px + env(safe-area-inset-bottom))}
+#backBtn{position:fixed;top:max(16px,env(safe-area-inset-top));left:max(16px,env(safe-area-inset-left));
+  background:none;border:1px solid rgba(203,179,150,.25);color:var(--dim);cursor:pointer;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:10px;
+  letter-spacing:.2em;text-transform:uppercase;padding:9px 13px;border-radius:999px;
+  transition:color .3s,border-color .3s;z-index:4}
+#backBtn:hover{color:var(--ink);border-color:rgba(203,179,150,.55)}
+.kicker{letter-spacing:.34em;text-transform:uppercase;font-size:11px;color:var(--dim);margin:0 0 18px}
+h1{margin:0 0 4px;font-size:clamp(46px,13vw,84px);font-weight:400;color:#ffe3b8;letter-spacing:.06em}
+.lede{margin:8px 0 34px;font-size:15px;font-style:italic;color:var(--ink);line-height:1.8}
+#obs{list-style:none;counter-reset:obs;padding:0;margin:0 0 36px}
+#obs li{counter-increment:obs;margin:0 0 22px;font-size:16px;line-height:1.75;color:#d8c3a2}
+#obs li::before{content:counter(obs) ". ";color:var(--dim);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+#obs li b{font-weight:400;color:var(--gold)}
+#ledger{border-top:1px solid rgba(203,179,150,.18);border-bottom:1px solid rgba(203,179,150,.18);
+  padding:22px 0;margin:0 0 40px}
+#ledger .led-head{letter-spacing:.28em;text-transform:uppercase;font-size:10px;color:var(--dim);margin:0 0 14px}
+.led-row{display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;
+  font-size:14.5px;color:var(--ink)}
+.led-row b{font-weight:400;color:var(--gold);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:14px}
+#eq{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;color:var(--dim);
+  line-height:1.95;white-space:pre;border-left:1px solid rgba(203,179,150,.18);
+  padding-left:18px;margin:0 0 44px}
+#eq .k{color:var(--gold)}
+#fadeblock{white-space:pre;font-size:14px;color:#ffd9a8;letter-spacing:.14em;line-height:1.95;margin:0 0 40px}
+#ritual{font-size:15px;font-style:italic;color:var(--dim);letter-spacing:.05em;margin:0}
+</style>
+</head>
+<body>
+<div id="main" class="screen" role="button" aria-label="touch the room to return to the light">
+  <div id="wordwall" aria-hidden="true"></div>
+  <div id="dot" style="--b:.9" aria-hidden="true"></div>
+  <canvas id="chart" aria-hidden="true"></canvas>
+  <p id="hint">there is a light in this room.<br>it dims while you are away.<br>touch the room to return.</p>
+  <button id="listenBtn" class="btn" type="button">play the gaps</button>
+  <button id="notesBtn" class="btn" type="button">the keeper's notes</button>
+</div>
+<div id="notes" class="screen hidden">
+  <button id="backBtn" type="button">&larr;&nbsp;return to the light</button>
+  <div id="n-inner">
+    <p class="kicker">notes from the keeper</p>
+    <h1>lapse</h1>
+    <p class="lede">what is kept here is not what you did.<br>what is kept here is where you were not.</p>
+    <ol id="obs">
+      <li>A light that waits is a different object from a light that shines. They are the same light. The difference is a unit of time, and time is the only thing this page holds.</li>
+      <li>It never goes out. It goes lower than the eye can say, but it never goes out. The floor is not zero. The floor is a decision.</li>
+      <li>Every return is a correction. The record bends upward, as if apologizing for the bend downward. The record does not apologize. The record only bends.</li>
+      <li>The sound of a long absence is higher than the sound of a short one. This is not a fact about sound. It is a fact about you.</li>
+      <li>The gaps are the instrument. The tones are only the places where you were. Played back, your comings and goings make a music you never wrote and cannot stop writing.</li>
+      <li>A lap is the act of falling away. A lapse is the falling itself. What you are touching now has lapsed, and has been kept.</li>
+      <li>Nothing here is real except that you were away, and that you came back. Both are stored as numbers. Both are true.</li>
+    </ol>
+    <div id="ledger">
+      <p class="led-head">the keeper keeps</p>
+      <div class="led-row"><span>returns</span><b id="ledRet">0</b></div>
+      <div class="led-row"><span>longest away</span><b id="ledLong">&mdash;</b></div>
+      <div class="led-row"><span>total away</span><b id="ledTotal">&mdash;</b></div>
+      <div class="led-row"><span>away now</span><b id="ledNow">&mdash;</b></div>
+    </div>
+    <pre id="eq">the light is what it is
+
+    <span class="k">light</span> = 1 &minus; e^&minus;t/&tau;
+    t     = how long you have been away
+    &tau;   = 4 h &mdash; chosen, not measured
+    you   = the one who returns
+    gap   = the real instrument</pre>
+    <div id="fadeblock" aria-hidden="true"></div>
+    <p id="ritual">touch the room. that is the whole ritual.</p>
+  </div>
+</div>
+<div id="toast" aria-live="polite"></div>
+<script>
+(function(){
+'use strict';
+var FLOOR=0.05, TAU=4*3600*1000, KEY='lapse.history.v1';
+var main=document.getElementById('main'),
+    notes=document.getElementById('notes'),
+    dot=document.getElementById('dot'),
+    canvas=document.getElementById('chart'),
+    hint=document.getElementById('hint'),
+    listenBtn=document.getElementById('listenBtn'),
+    notesBtn=document.getElementById('notesBtn'),
+    backBtn=document.getElementById('backBtn'),
+    toast=document.getElementById('toast');
+var history=loadHistory();
+
+function loadHistory(){
+  try{
+    var raw=localStorage.getItem(KEY);
+    if(raw){
+      var a=JSON.parse(raw);
+      if(Array.isArray(a)){
+        return a.filter(function(x){return typeof x==='number'&&isFinite(x);})
+         .sort(function(p,q){return p-q;});
+      }
+    }
+  }catch(e){}
+  return [];
+}
+function saveHistory(){
+  try{localStorage.setItem(KEY,JSON.stringify(history));}catch(e){}
+}
+function bright(dt){return FLOOR+(1-FLOOR)*Math.exp(-Math.max(0,dt)/TAU);}
+function lastPress(){return history.length?history[history.length-1]:Date.now();}
+function freqOf(gapMs){
+  var s=Math.max(0,gapMs)/1000;
+  return Math.min(1050,130*Math.pow(1+s/40,0.16));
+}
+function ampOf(gapMs){
+  var s=Math.max(0,gapMs)/1000;
+  return 0.06+0.09*(1-Math.exp(-s/86400));
+}
+function fmt(ms){
+  var s=Math.round(ms/1000);
+  if(s<60)return s+' s';
+  var m=Math.floor(s/60);
+  if(m<60)return m+' m';
+  var h=Math.floor(m/60);
+  if(h<24)return h+' h';
+  var d=Math.floor(h/24),hh=h%24;
+  return d+' d'+(hh?' '+hh+' h':'');
+}
+
+var audioCtx=null;
+function ctx(){
+  if(!audioCtx){
+    var AC=window.AudioContext||window.webkitAudioContext;
+    if(AC)audioCtx=new AC();
+  }
+  if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();
+  return audioCtx;
+}
+function toneAt(c,t,freq,amp){
+  var out=c.createGain();out.gain.value=0.4;out.connect(c.destination);
+  [[freq,amp,'triangle'],[freq*2,amp*0.3,'sine']].forEach(function(p){
+    var g=c.createGain();
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(p[1],t+0.04);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+2.0);
+    var o=c.createOscillator();
+    o.type=p[2];o.frequency.setValueAtTime(p[0],t);
+    o.detune.setValueAtTime(Math.random()*8-4,t);
+    o.connect(g);g.connect(out);
+    o.start(t);o.stop(t+2.1);
+  });
+}
+function press(){
+  var now=Date.now();
+  if(history.length){
+    var gap=now-history[history.length-1];
+    var c=ctx();if(c)toneAt(c,c.currentTime,freqOf(gap),ampOf(gap));
+  }else{
+    var c2=ctx();if(c2)toneAt(c2,c2.currentTime,freqOf(0),ampOf(0));
+  }
+  history.push(now);saveHistory();
+  hint.classList.add('hidden');
+  updateLedger();
+}
+
+var playbackCtx=null,playTimer=null;
+function startListen(){
+  if(listenBtn.classList.contains('playing')){stopListen();return;}
+  if(history.length<2){toastMsg('not enough yet. come back once more.');return;}
+  var AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC){toastMsg('no voice in this room.');return;}
+  var c=new AC();if(c.state==='suspended')c.resume();
+  var t=c.currentTime+0.15,total=0;
+  var gaps=[];
+  for(var i=1;i<history.length;i++)gaps.push(history[i]-history[i-1]);
+  gaps.slice(-200).forEach(function(gap){
+    toneAt(c,t,freqOf(gap),ampOf(gap));
+    var d=Math.min(18,0.35+1.2*Math.log2(1+gap/1000/120));
+    t+=d;total+=d;
+  });
+  playbackCtx=c;
+  listenBtn.classList.add('playing');
+  playTimer=setTimeout(stopListen,(total+3)*1000);
+}
+function stopListen(){
+  if(playbackCtx){try{playbackCtx.close();}catch(e){}playbackCtx=null;}
+  if(playTimer){clearTimeout(playTimer);playTimer=null;}
+  listenBtn.classList.remove('playing');
+}
+
+var toastTimer=null;
+function toastMsg(m){
+  toast.textContent=m;toast.classList.add('show');
+  if(toastTimer)clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){toast.classList.remove('show');},2800);
+}
+
+function updateLedger(){
+  var now=Date.now(),longest=0,total=0;
+  for(var i=1;i<history.length;i++){
+    var g=history[i]-history[i-1];
+    if(g>longest)longest=g;total+=g;
+  }
+  document.getElementById('ledRet').textContent=history.length;
+  document.getElementById('ledLong').textContent=longest?fmt(longest):'\u2014';
+  document.getElementById('ledTotal').textContent=total?fmt(total):'\u2014';
+  document.getElementById('ledNow').textContent=history.length?fmt(now-lastPress()):'\u2014';
+}
+
+function fitChart(){
+  var dpr=Math.min(window.devicePixelRatio||1,2);
+  var w=canvas.offsetWidth,h=canvas.offsetHeight;
+  canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+  canvas.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
+}
+function drawChart(){
+  var w=canvas.clientWidth,h=canvas.clientHeight;
+  var c=canvas.getContext('2d');
+  c.clearRect(0,0,w,h);
+  if(!history.length)return;
+  var now=Date.now(),t0=history[0];
+  var t1=Math.max(now,history[history.length-1]+1000);
+  if(t1-t0<60000)t1=t0+60000;
+  var span=t1-t0;
+  var X=function(t){return 8+(w-16)*(t-t0)/span;};
+  var Y=function(b){return h-4-(h-8)*(b-FLOOR)/(1-FLOOR);};
+  var pts=[],i,k;
+  for(i=0;i<history.length;i++){
+    var a=history[i],b=(i+1<history.length)?history[i+1]:now;
+    var n=Math.min(200,Math.max(6,Math.ceil((b-a)/1500)));
+    for(k=0;k<=n;k++){
+      var t=a+(b-a)*k/n;
+      pts.push([X(t),Y(bright(t-a))]);
+    }
+  }
+  c.beginPath();c.moveTo(pts[0][0],pts[0][1]);
+  for(i=1;i<pts.length;i++)c.lineTo(pts[i][0],pts[i][1]);
+  c.strokeStyle='rgba(255,205,150,0.5)';c.lineWidth=1.2;c.stroke();
+  c.lineTo(pts[pts.length-1][0],h-2);c.lineTo(pts[0][0],h-2);
+  c.closePath();
+  var grad=c.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0,'rgba(255,190,120,0.08)');grad.addColorStop(1,'rgba(255,190,120,0)');
+  c.fillStyle=grad;c.fill();
+  c.fillStyle='rgba(255,220,170,0.6)';
+  for(i=0;i<history.length;i++)c.fillRect(X(history[i])-0.5,Y(1)-3,1,3);
+}
+
+function buildFades(){
+  var i,wall='';
+  for(i=0;i<20;i++){
+    wall+='<span style="opacity:'+(0.05*Math.pow(0.85,i)).toFixed(3)+'">it never goes out.</span>\n';
+  }
+  document.getElementById('wordwall').innerHTML=wall;
+  var fb='';
+  for(i=0;i<16;i++){
+    fb+='<span style="opacity:'+(0.55*Math.pow(0.82,i)).toFixed(3)+'">it never goes out.</span>\n';
+  }
+  document.getElementById('fadeblock').innerHTML=fb;
+}
+
+function showScreen(name){
+  main.classList.toggle('hidden',name!=='main');
+  notes.classList.toggle('hidden',name!=='notes');
+  if(name==='notes')updateLedger();
+}
+
+main.addEventListener('pointerdown',function(e){
+  if(e.target.closest('.btn'))return;
+  e.preventDefault();
+  press();
+});
+listenBtn.addEventListener('click',function(e){e.stopPropagation();startListen();});
+notesBtn.addEventListener('click',function(e){e.stopPropagation();showScreen('notes');});
+backBtn.addEventListener('click',function(){showScreen('main');});
+document.addEventListener('keydown',function(e){
+  if(!main.classList.contains('hidden')&&(e.key===' '||e.key==='Enter')){e.preventDefault();press();}
+});
+window.addEventListener('resize',fitChart);
+window.addEventListener('orientationchange',function(){setTimeout(fitChart,60);});
+document.addEventListener('visibilitychange',saveHistory);
+window.addEventListener('pagehide',saveHistory);
+
+function loop(){
+  var now=Date.now(),b=bright(now-lastPress());
+  dot.style.opacity=String(b);
+  dot.style.setProperty('--b',String(b));
+  drawChart();
+  requestAnimationFrame(loop);
+}
+
+fitChart();
+buildFades();
+if(history.length)hint.classList.add('hidden');
+updateLedger();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

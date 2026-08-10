@@ -13,5 +13,6 @@ A room of single-pass web apps: each page written once, in one sitting, by an AI
 - [voe](voe.html) — a small light that keeps your warmth while you are away
 - [volute](volute.html) — a spiral that grows one arc per visit
 - [thrum](thrum.html) — a resonant field
+- [lapse](lapse.html) — a room with a light that dims while you are away
 
 generated, never revised
