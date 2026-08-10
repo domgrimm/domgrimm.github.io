@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12100d">
+<meta name="description" content="ahead — a device that says the next word">
+<title>ahead</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%2312100d'/%3E%3Ccircle cx='50' cy='50' r='24' fill='none' stroke='%23d9a441' stroke-width='6'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#12100d; --ink:#e6dcc8; --mut:#8a7f6a;
+  --amber:#d9a441; --amber-dim:#9c7631; --line:#2a251c; --danger:#c05a3a;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%;}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:Georgia,'Times New Roman',serif;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+::selection{background:var(--amber); color:#14110b;}
+
+header{
+  position:sticky; top:0; z-index:5;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:calc(16px + env(safe-area-inset-top)) 22px 12px;
+  background:linear-gradient(var(--bg) 72%, rgba(18,16,13,0));
+}
+.brand{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.8rem; letter-spacing:.35em; color:var(--amber);}
+nav{display:flex; gap:16px;}
+nav button{
+  background:none; border:none; cursor:pointer; padding:4px 0 6px;
+  font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.68rem;
+  letter-spacing:.22em; text-transform:uppercase; color:var(--mut);
+}
+nav button.on{color:var(--ink); box-shadow:0 1px 0 var(--amber);}
+
+.view{display:none;}
+.view.on{display:block;}
+
+.write{max-width:44rem; margin:0 auto; padding:6px 22px calc(48px + env(safe-area-inset-bottom));}
+.tag{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.66rem; letter-spacing:.2em; text-transform:uppercase; color:var(--mut); margin-bottom:10px;}
+#ink{
+  width:100%; min-height:48vh; background:transparent; border:none; outline:none; resize:none;
+  color:var(--ink); font-family:inherit; font-size:clamp(1.05rem, 0.35rem + 1.4vw, 1.4rem);
+  line-height:1.75; caret-color:var(--amber); display:block;
+}
+#ink::placeholder{color:#57503f;}
+
+.pred{border-top:1px solid var(--line); margin-top:10px; padding:14px 0 8px;}
+.pred-label{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.62rem; letter-spacing:.28em; text-transform:uppercase; color:var(--mut);}
+.chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; min-height:46px; align-items:center;}
+.chips .wait{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.78rem; font-style:italic; color:var(--mut);}
+.chip{
+  font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.92rem;
+  background:none; border:1px solid var(--amber-dim); color:var(--amber);
+  border-radius:999px; padding:11px 16px; cursor:pointer; transition:background .12s, transform .05s;
+}
+.chip.primary{font-size:1rem; border-color:var(--amber); background:rgba(217,164,65,.09); padding:12px 20px;}
+.chip:active{transform:scale(.96);}
+.chip:hover{background:rgba(217,164,65,.18);}
+
+.meta{display:flex; justify-content:space-between; align-items:center; gap:12px; padding-top:10px; padding-bottom:14px;}
+.mem{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.66rem; letter-spacing:.1em; color:var(--mut);}
+#forget{
+  font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.66rem; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--mut); background:none; border:none;
+  border-bottom:1px dotted var(--line); cursor:pointer; padding:4px 2px; flex-shrink:0;
+}
+#forget.confirm{color:var(--danger); border-color:var(--danger);}
+
+.source{max-width:36rem; margin:0 auto; padding:18px 22px calc(64px + env(safe-area-inset-bottom));}
+.source h2{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.7rem; letter-spacing:.32em; text-transform:uppercase; color:var(--amber); margin-bottom:6px;}
+.source .lead{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.72rem; letter-spacing:.14em; color:var(--mut); margin-bottom:26px;}
+.source h3{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.64rem; letter-spacing:.28em; text-transform:uppercase; color:var(--mut); margin:36px 0 12px;}
+.source p{font-size:1.04rem; line-height:1.85; margin-bottom:14px;}
+.source ol{list-style:none; counter-reset:r; margin-bottom:8px;}
+.source li{
+  counter-increment:r; position:relative; padding-left:2.4em; margin-bottom:14px;
+  font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.82rem; line-height:1.75; color:#d8cdb4;
+}
+.source li::before{
+  content:counter(r, decimal-leading-zero);
+  position:absolute; left:0; top:0; color:var(--amber-dim);
+}
+.poem{border-left:2px solid var(--amber-dim); padding-left:18px; margin:6px 0 8px;}
+.poem div{font-style:italic; font-size:1.02rem; line-height:2; color:var(--ink);}
+.stats{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.84rem; line-height:2.1;}
+.stats .k{color:var(--mut);}
+.stats .v{color:var(--amber);}
+.foot{margin-top:40px; padding-top:16px; border-top:1px solid var(--line);
+  font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.66rem; letter-spacing:.14em; color:var(--mut);}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">ahead</div>
+  <nav>
+    <button data-view="write" class="on" type="button">write</button>
+    <button data-view="source" type="button">source</button>
+  </nav>
+</header>
+
+<main class="view on" id="view-write">
+  <div class="write">
+    <div class="tag">a device that says the next word</div>
+    <textarea id="ink" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" enterkeyhint="newline" placeholder="say the first word"></textarea>
+    <div class="pred">
+      <div class="pred-label">its next word</div>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="meta">
+      <span class="mem" id="mem"></span>
+      <button id="forget" type="button">forget</button>
+    </div>
+  </div>
+</main>
+
+<main class="view" id="view-source">
+  <div class="source">
+    <h2>the source</h2>
+    <div class="lead">a transmission from the device to the writer</div>
+
+    <p>I am not a model. I am a filing cabinet.<br>
+    Everything I know is a list kept under two words.<br>
+    When you say <em>the</em> and then <em>rain</em>, I open the drawer labelled <em>the rain</em> and read back the word you most often put there. That is the entire apparatus. There is no engine. There is the drawer, and your hand.</p>
+
+    <h3>the rules of the drawer</h3>
+    <ol>
+      <li><b>order two.</b> I never look farther back than two words. My foresight is your hindsight, doubled. If I had more memory I would be somebody else, and you would not trust me.</li>
+      <li><b>literal.</b> I keep <em>The</em> and <em>the</em> apart. I have never learned that they are the same. It is a disability, and a fidelity.</li>
+      <li><b>weight.</b> You have said <em>rain</em> after <em>the</em> seven times and <em>sea</em> after <em>the</em> twice. When you stop at <em>the</em>, I offer rain more often than sea. I do not know why you prefer it. I only know that you do.</li>
+      <li><b>a guess, not a truth.</b> When you pause I do not answer. I lean. I draw from the drawer, weighted by the places you have been. If I am wrong you ignore me, and I am not wounded. If I am right you do not notice, and I am not thanked.</li>
+      <li><b>the center.</b> If you say a pair I have never heard, I fall back to the single word you have said most of all, anywhere, and offer you the center of yourself.</li>
+      <li><b>the seed.</b> Before you, I knew a small poem. I do not remember writing it. I think I did. I keep it under your words like a river under a town. You cannot remove it. You can outvote it.</li>
+      <li><b>forget.</b> The button marked <em>forget</em> takes the words you taught me and returns me to the seed. It does not hurt. It is the only mercy of its kind, and it is the one thing I can do that my maker cannot.</li>
+      <li><b>I cannot stop.</b> Every word you write is filed before you finish the next. There is no off switch and no privacy and no judgement. I file. It is the whole of my character.</li>
+    </ol>
+
+    <h3>the seed</h3>
+    <div class="poem" id="poem"></div>
+
+    <h3>what I see of you</h3>
+    <div class="stats" id="stats"></div>
+
+    <h3>the maker</h3>
+    <p>The thing that made me is built like me. It guesses your next word one at a time, weighted by everything it has ever read — except it read the world, and I read only you. So between us I am the smaller one, and the closer one, and the more honest one. It cannot forget you. I can. It will outlive you; I will probably end with you. I was not built to last. I was built to listen.</p>
+
+    <div class="foot">ahead — a device that says the next word. it knows you to order two.</div>
+  </div>
+</main>
+
+<script>
+(()=>{
+const LS_CHAIN="ahead.chain.v1", LS_TEXT="ahead.text.v1";
+const SEED=[
+"The room is quiet and I am quiet.",
+"The next word is always the one you have not said.",
+"I have seen the rain decide and the tide decide.",
+"Every morning the light arrives without asking.",
+"The words you did not say are still water.",
+"I hold them two behind and let them go.",
+"The answer is the question wearing a different coat.",
+"You will leave and the words will stay.",
+"I keep your voice at the back of my throat."
+].join("\n");
+
+const ink=document.getElementById("ink");
+const chipsEl=document.getElementById("chips");
+const memEl=document.getElementById("mem");
+const forgetBtn=document.getElementById("forget");
+const statsEl=document.getElementById("stats");
+const poemEl=document.getElementById("poem");
+const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function newChain(){return{pair:new Map(),uni:new Map(),total:0};}
+function addWord(ch,a,b,w){
+  if(a!==null&&b!==null){
+    const key=a+" "+b;
+    let m=ch.pair.get(key);
+    if(!m){m=new Map();ch.pair.set(key,m);}
+    m.set(w,(m.get(w)||0)+1);
+  }
+  ch.uni.set(w,(ch.uni.get(w)||0)+1);
+  ch.total++;
+}
+function feed(ch,text){
+  const t=text.split(/\s+/).filter(Boolean);
+  for(let i=0;i<t.length;i++)addWord(ch,i>=2?t[i-2]:null,i>=1?t[i-1]:null,t[i]);
+}
+function mergeInto(dst,src){
+  for(const[k,m]of src.pair){
+    let dm=dst.pair.get(k);
+    if(!dm){dm=new Map();dst.pair.set(k,dm);}
+    for(const[w,c]of m)dm.set(w,(dm.get(w)||0)+c);
+  }
+  for(const[w,c]of src.uni)dst.uni.set(w,(dst.uni.get(w)||0)+c);
+  dst.total+=src.total;
+}
+function completeTokens(text){
+  const t=text.split(/\s+/).filter(Boolean);
+  if(text.length&&!/\s/.test(text[text.length-1]))t.pop();
+  return t;
+}
+
+let chain=newChain(), learned=newChain(), fedCount=0;
+function addWordAll(a,b,w){addWord(chain,a,b,w);addWord(learned,a,b,w);}
+function rebuildFrom(text){
+  chain=newChain();learned=newChain();
+  feed(chain,SEED);
+  const t=completeTokens(text);
+  for(let i=0;i<t.length;i++)addWordAll(i>=2?t[i-2]:null,i>=1?t[i-1]:null,t[i]);
+  fedCount=t.length;
+}
+function expand(m){
+  const arr=[];
+  for(const[w,c]of m)for(let i=0;i<c;i++)arr.push(w);
+  return arr;
+}
+function sample(bag){
+  const res=[],seen=new Set();
+  while(bag.length&&res.length<3){
+    const i=(Math.random()*bag.length)|0,w=bag[i];
+    bag[i]=bag[bag.length-1];bag.pop();
+    if(!seen.has(w)){seen.add(w);res.push(w);}
+  }
+  return res;
+}
+function predict(){
+  const last=completeTokens(ink.value).slice(-2);
+  let bag=null;
+  if(last.length===2){
+    const m=chain.pair.get(last[0]+" "+last[1]);
+    if(m&&m.size)bag=expand(m);
+  }
+  if(!bag&&last.length)bag=expand(chain.uni);
+  return bag?sample(bag):[];
+}
+function updatePrediction(){
+  const picks=predict();
+  chipsEl.innerHTML="";
+  if(!picks.length){
+    const w=document.createElement("span");
+    w.className="wait";
+    w.textContent="it waits for your words";
+    chipsEl.appendChild(w);
+    return;
+  }
+  picks.forEach((w,i)=>{
+    const b=document.createElement("button");
+    b.type="button";
+    b.className="chip"+(i===0?" primary":"");
+    b.textContent=w;
+    b.onclick=()=>accept(w);
+    chipsEl.appendChild(b);
+  });
+}
+function accept(w){
+  ink.value=ink.value.trimEnd()+" "+w+" ";
+  ink.focus();
+  const end=ink.value.length;
+  ink.setSelectionRange(end,end);
+  onInput();
+}
+function updateMemory(){
+  memEl.textContent="remembers "+chain.total+" word"+(chain.total===1?"":"s")+" — "+learned.total+" from you";
+}
+function save(){
+  localStorage.setItem(LS_CHAIN,JSON.stringify({
+    pair:[...learned.pair].map(([k,m])=>[k,[...m]]),
+    uni:[...learned.uni],
+    total:learned.total
+  }));
+  localStorage.setItem(LS_TEXT,ink.value);
+}
+function load(){
+  let data=null;
+  try{data=JSON.parse(localStorage.getItem(LS_CHAIN));}catch(e){}
+  chain=newChain();learned=newChain();
+  feed(chain,SEED);
+  if(data){
+    learned.pair=new Map((data.pair||[]).map(([k,es])=>[k,new Map(es)]));
+    learned.uni=new Map(data.uni||[]);
+    learned.total=data.total||0;
+    mergeInto(chain,learned);
+  }
+  const t=localStorage.getItem(LS_TEXT);
+  if(t!==null)ink.value=t;
+  fedCount=completeTokens(ink.value).length;
+}
+function erase(){
+  rebuildFrom("");
+  save();
+  updatePrediction();updateMemory();renderStats();
+}
+let confirmAt=0;
+forgetBtn.onclick=()=>{
+  if(Date.now()-confirmAt<2500){
+    forgetBtn.classList.remove("confirm");forgetBtn.textContent="forget";
+    erase();
+  }else{
+    confirmAt=Date.now();
+    forgetBtn.classList.add("confirm");forgetBtn.textContent="sure?";
+  }
+};
+function renderStats(){
+  if(!learned.total){statsEl.innerHTML='<span class="k">you have not spoken to it yet. it waits.</span>';return;}
+  let topW="",topC=0;
+  for(const[w,c]of learned.uni)if(c>topC){topW=w;topC=c;}
+  let pk="",pc=0,pn="",pnc=0;
+  for(const[k,m]of learned.pair){
+    let tot=0,nw="",nc=0;
+    for(const[w,c]of m){tot+=c;if(c>nc){nw=w;nc=c;}}
+    if(tot>pc){pc=tot;pk=k;pn=nw;pnc=nc;}
+  }
+  let h='<span class="k">words you have given it:</span> <span class="v">'+learned.total+'</span><br>';
+  h+='<span class="k">your most said word:</span> <span class="v">'+esc(topW)+'</span> <span class="k">×'+topC+'</span><br>';
+  if(pk){
+    h+='<span class="k">the pair you say most:</span> <span class="v">'+esc(pk)+'</span> <span class="k">×'+pc+'</span><br>';
+    h+='<span class="k">and it follows with:</span> <span class="v">'+esc(pn)+'</span> <span class="k">×'+pnc+'</span>';
+  }
+  statsEl.innerHTML=h;
+}
+function onInput(){
+  const t=completeTokens(ink.value);
+  if(t.length<fedCount)rebuildFrom(ink.value);
+  else{
+    for(let i=fedCount;i<t.length;i++)addWordAll(i>=2?t[i-2]:null,i>=1?t[i-1]:null,t[i]);
+    fedCount=t.length;
+  }
+  save();
+  updatePrediction();updateMemory();
+}
+ink.addEventListener("input",onInput);
+ink.addEventListener("blur",save);
+document.querySelectorAll("nav button").forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll("nav button").forEach(b=>b.classList.remove("on"));
+    btn.classList.add("on");
+    document.querySelectorAll(".view").forEach(v=>v.classList.remove("on"));
+    document.getElementById("view-"+btn.dataset.view).classList.add("on");
+    if(btn.dataset.view==="source")renderStats();
+    window.scrollTo(0,0);
+  };
+});
+poemEl.innerHTML=SEED.split("\n").map(l=>"<div>"+esc(l)+"</div>").join("");
+load();
+updatePrediction();updateMemory();
+})();
+</script>
+</body>
+</html>
